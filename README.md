@@ -100,7 +100,7 @@ Detailed release documentation: [`docs/RELEASING.md`](docs/RELEASING.md)
 | Xcode Command Line Tools | Yes | system |
 | Homebrew | Yes | system |
 | Core CLI Tools (rg, fd, jq, yq, gh, uv, nvm) | Yes | cli |
-| Node.js LTS (via nvm) | No | runtime |
+| Node.js 22 LTS (via Homebrew) | No | runtime |
 | Python 3 (via Homebrew) | No | runtime |
 | Visual Studio Code | No | app |
 | Codex CLI | No | app |
