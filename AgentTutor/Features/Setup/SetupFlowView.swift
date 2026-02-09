@@ -29,9 +29,13 @@ struct SetupFlowView: View {
         case .welcome:
             WelcomeView()
         case .apiKey:
-            APIKeyView(apiKey: $viewModel.apiKey, validationStatus: viewModel.apiKeyValidationStatus) {
-                viewModel.onAPIKeyChanged()
-            }
+            APIKeyView(
+                apiKey: $viewModel.apiKey,
+                baseURL: $viewModel.apiBaseURL,
+                validationStatus: viewModel.apiKeyValidationStatus,
+                onKeyChanged: { viewModel.onAPIKeyChanged() },
+                onBaseURLChanged: { viewModel.onBaseURLChanged() }
+            )
         case .selection:
             SelectionView(viewModel: viewModel)
         case .install:
@@ -118,19 +122,31 @@ private struct WelcomeView: View {
 
 private struct APIKeyView: View {
     @Binding var apiKey: String
+    @Binding var baseURL: String
     let validationStatus: APIKeyValidationStatus
-    let onChanged: () -> Void
+    let onKeyChanged: () -> Void
+    let onBaseURLChanged: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Enter OpenAI API Key")
+            Text("OpenAI API Configuration")
                 .font(.title3)
                 .fontWeight(.semibold)
 
+            Text("Base URL")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            TextField("https://api.openai.com", text: $baseURL)
+                .textFieldStyle(.roundedBorder)
+                .onChange(of: baseURL) { onBaseURLChanged() }
+
+            Text("API Key")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
             HStack(spacing: 8) {
                 SecureField("sk-...", text: $apiKey)
                     .textFieldStyle(.roundedBorder)
-                    .onChange(of: apiKey) { onChanged() }
+                    .onChange(of: apiKey) { onKeyChanged() }
 
                 switch validationStatus {
                 case .idle:
@@ -181,26 +197,23 @@ private struct SelectionView: View {
 
                 ForEach(InstallCategory.allCases, id: \.rawValue) { category in
                     if let items = groupedItems[category] {
-                        Section {
-                            VStack(spacing: 8) {
-                                ForEach(items, id: \.id) { item in
-                                    Toggle(isOn: Binding(
-                                        get: { viewModel.isItemSelected(item) },
-                                        set: { viewModel.setSelection($0, for: item) }
-                                    )) {
-                                        VStack(alignment: .leading, spacing: 4) {
-                                            Text(item.name)
-                                            Text(item.summary)
-                                                .font(.footnote)
-                                                .foregroundStyle(.secondary)
-                                        }
-                                    }
-                                    .disabled(!viewModel.canToggle(item))
-                                }
-                            }
-                        } header: {
+                        VStack(alignment: .leading, spacing: 8) {
                             Text(category.rawValue)
                                 .font(.headline)
+                            ForEach(items, id: \.id) { item in
+                                Toggle(isOn: Binding(
+                                    get: { viewModel.isItemSelected(item) },
+                                    set: { viewModel.setSelection($0, for: item) }
+                                )) {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(item.name)
+                                        Text(item.summary)
+                                            .font(.footnote)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                                .disabled(!viewModel.canToggle(item))
+                            }
                         }
                     }
                 }

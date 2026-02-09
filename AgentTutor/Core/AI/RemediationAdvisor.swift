@@ -1,7 +1,7 @@
 import Foundation
 
 protocol RemediationAdvising: Sendable {
-    func suggest(failure: InstallFailure, hints: [String], apiKey: String) async -> RemediationAdvice
+    func suggest(failure: InstallFailure, hints: [String], apiKey: String, baseURL: String) async -> RemediationAdvice
 }
 
 struct OpenAIAdvicePayload: Decodable {
@@ -19,7 +19,7 @@ final class RemediationAdvisor: RemediationAdvising {
         self.model = model
     }
 
-    func suggest(failure: InstallFailure, hints: [String], apiKey: String) async -> RemediationAdvice {
+    func suggest(failure: InstallFailure, hints: [String], apiKey: String, baseURL: String) async -> RemediationAdvice {
         let fallback = heuristicAdvice(for: failure, hints: hints)
         let normalizedKey = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !normalizedKey.isEmpty else {
@@ -27,7 +27,7 @@ final class RemediationAdvisor: RemediationAdvising {
         }
 
         do {
-            let generated = try await fetchAdviceFromOpenAI(failure: failure, hints: hints, apiKey: normalizedKey)
+            let generated = try await fetchAdviceFromOpenAI(failure: failure, hints: hints, apiKey: normalizedKey, baseURL: baseURL)
             let safeCommands = generated.commands.filter(CommandSafety.isAllowed)
             guard !safeCommands.isEmpty else {
                 return RemediationAdvice(
@@ -103,7 +103,7 @@ final class RemediationAdvisor: RemediationAdvising {
         )
     }
 
-    private func fetchAdviceFromOpenAI(failure: InstallFailure, hints: [String], apiKey: String) async throws -> OpenAIAdvicePayload {
+    private func fetchAdviceFromOpenAI(failure: InstallFailure, hints: [String], apiKey: String, baseURL: String) async throws -> OpenAIAdvicePayload {
         let systemPrompt = "You are a macOS setup assistant. Return only compact JSON with keys summary,commands,notes. Commands must be safe and minimal."
         let userPrompt = """
         Installation step failed.
@@ -136,7 +136,8 @@ final class RemediationAdvisor: RemediationAdvising {
             ]
         ]
 
-        var request = URLRequest(url: URL(string: "https://api.openai.com/v1/responses")!)
+        let endpoint = baseURL.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        var request = URLRequest(url: URL(string: "\(endpoint)/v1/responses")!)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
         request.addValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")

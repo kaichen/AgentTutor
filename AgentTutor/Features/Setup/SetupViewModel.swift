@@ -6,6 +6,7 @@ import Foundation
 final class SetupViewModel: ObservableObject {
     @Published var stage: SetupStage = .welcome
     @Published var apiKey: String = ""
+    @Published var apiBaseURL: String = "https://api.openai.com"
     @Published var selectedItemIDs: Set<String>
     @Published var stepStates: [InstallStepState] = []
     @Published var runState: InstallRunState = .idle
@@ -136,7 +137,8 @@ final class SetupViewModel: ObservableObject {
                         remediationAdvice = await advisor.suggest(
                             failure: failure,
                             hints: item.remediationHints,
-                            apiKey: apiKey
+                            apiKey: apiKey,
+                            baseURL: apiBaseURL
                         )
                         return
                     }
@@ -205,25 +207,37 @@ final class SetupViewModel: ObservableObject {
     }
 
     func onAPIKeyChanged() {
+        revalidateAPIKey()
+    }
+
+    func onBaseURLChanged() {
+        revalidateAPIKey()
+    }
+
+    private func revalidateAPIKey() {
         apiKeyValidationTask?.cancel()
         let key = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        let base = apiBaseURL.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !key.isEmpty else {
             apiKeyValidationStatus = .idle
             return
         }
         apiKeyValidationStatus = .validating
         apiKeyValidationTask = Task {
-            // debounce 500ms
             try? await Task.sleep(nanoseconds: 500_000_000)
             guard !Task.isCancelled else { return }
-            let status = await Self.checkAPIKey(key)
+            let status = await Self.checkAPIKey(key, baseURL: base)
             guard !Task.isCancelled else { return }
             apiKeyValidationStatus = status
         }
     }
 
-    private static func checkAPIKey(_ key: String) async -> APIKeyValidationStatus {
-        var request = URLRequest(url: URL(string: "https://api.openai.com/v1/models")!)
+    private static func checkAPIKey(_ key: String, baseURL: String) async -> APIKeyValidationStatus {
+        let endpoint = baseURL.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        guard let url = URL(string: "\(endpoint)/v1/models") else {
+            return .invalid("Invalid base URL")
+        }
+        var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.addValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
         request.timeoutInterval = 10
