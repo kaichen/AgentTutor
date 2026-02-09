@@ -9,7 +9,7 @@ import XCTest
 
 final class AgentTutorUITestsLaunchTests: XCTestCase {
 
-override func setUpWithError() throws {
+    override func setUpWithError() throws {
         continueAfterFailure = false
     }
 

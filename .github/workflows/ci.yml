@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test-package:
+    name: Build, Test, Package
+    runs-on: macos-latest
+    timeout-minutes: 60
+    env:
+      AGENTTUTOR_DISABLE_CODE_SIGNING: "1"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate scripts syntax
+        run: |
+          bash -n Scripts/common.sh
+          bash -n Scripts/build.sh
+          bash -n Scripts/test.sh
+          bash -n Scripts/package_app.sh
+          bash -n Scripts/release.sh
+
+      - name: Build (Debug)
+        run: ./Scripts/build.sh --configuration Debug
+
+      - name: Run unit tests
+        run: ./Scripts/test.sh --unit
+
+      - name: Packaging smoke test
+        run: ./Scripts/package_app.sh --configuration Release --output-dir Build/ArtifactsCI
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ github.run_id }}
+          path: Build/TestResults/*.xcresult
+          if-no-files-found: ignore
+
+      - name: Upload packaging artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-smoke-${{ github.run_id }}
+          path: |
+            Build/ArtifactsCI/**/*.zip
+            Build/ArtifactsCI/**/metadata.env
+          if-no-files-found: error

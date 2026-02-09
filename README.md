@@ -53,20 +53,45 @@ AgentTutor/
 # Open in Xcode
 open AgentTutor.xcodeproj
 
-# Or build from command line
-xcodebuild -project AgentTutor.xcodeproj -scheme AgentTutor \
-  -configuration Debug -destination 'platform=macOS' build
+# Build from command line
+./Scripts/build.sh --configuration Debug
+
+# Package a release artifact
+./Scripts/package_app.sh --configuration Release
 ```
 
 ## Testing
 
 ```bash
-# Unit tests (recommended)
-xcodebuild -project AgentTutor.xcodeproj -scheme AgentTutor \
-  -destination 'platform=macOS' -only-testing:AgentTutorTests test
+# Unit tests (recommended/default)
+./Scripts/test.sh --unit
+
+# Full test pass (includes UI tests)
+./Scripts/test.sh --all
 ```
 
 Unit tests cover dependency resolution (`InstallPlannerTests`) and command safety validation (`CommandSafetyTests`) using the Swift Testing framework.
+
+## Release Pipeline
+
+```bash
+# Build + test + package
+./Scripts/release.sh
+
+# Add notarization and GitHub release publishing
+./Scripts/release.sh --notarize --publish --tag v1.0.0
+```
+
+Detailed release documentation: [`docs/RELEASING.md`](docs/RELEASING.md)
+
+## GitHub Actions
+
+- `CI` workflow (`.github/workflows/ci.yml`)
+  - Triggers on PR to `main`, push to `main`, and manual dispatch
+  - Runs script syntax checks, debug build, unit tests, and release packaging smoke test
+- `Tag Release` workflow (`.github/workflows/tag-release.yml`)
+  - Triggers on tag push (`v*`)
+  - Verifies tag equals `MARKETING_VERSION`, runs unit tests, builds release artifacts, and publishes GitHub Release assets automatically
 
 ## Install Catalog
 

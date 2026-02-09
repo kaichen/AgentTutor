@@ -1,0 +1,94 @@
+name: Tag Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish-release:
+    name: Build And Publish GitHub Release
+    runs-on: macos-latest
+    timeout-minutes: 90
+    env:
+      AGENTTUTOR_DISABLE_CODE_SIGNING: "1"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify tag matches MARKETING_VERSION
+        run: |
+          source Scripts/common.sh
+          expected_tag="v$(marketing_version Release)"
+          if [[ "${GITHUB_REF_NAME}" != "${expected_tag}" ]]; then
+            fail "Tag '${GITHUB_REF_NAME}' does not match expected '${expected_tag}'."
+          fi
+
+      - name: Verify GitHub CLI availability
+        run: gh --version
+
+      - name: Run unit tests
+        run: ./Scripts/test.sh --unit
+
+      - name: Build release artifacts
+        run: ./Scripts/release.sh --configuration Release --skip-tests --output-dir Build/ArtifactsRelease
+
+      - name: Resolve release artifact paths
+        id: artifacts
+        run: |
+          source Scripts/common.sh
+          release_id="$(release_identifier Release)"
+          artifact_dir="${PWD}/Build/ArtifactsRelease/${release_id}"
+          zip_path="${artifact_dir}/${release_id}.zip"
+          dsym_path="${artifact_dir}/${release_id}.dSYM.zip"
+
+          [[ -f "${zip_path}" ]] || fail "Missing release zip at ${zip_path}"
+
+          {
+            echo "release_id=${release_id}"
+            echo "artifact_dir=${artifact_dir}"
+            echo "zip_path=${zip_path}"
+          } >> "${GITHUB_OUTPUT}"
+
+          if [[ -f "${dsym_path}" ]]; then
+            echo "dsym_path=${dsym_path}" >> "${GITHUB_OUTPUT}"
+          fi
+
+      - name: Upload release artifacts to workflow run
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ steps.artifacts.outputs.release_id }}
+          path: |
+            ${{ steps.artifacts.outputs.zip_path }}
+            ${{ steps.artifacts.outputs.dsym_path }}
+            ${{ steps.artifacts.outputs.artifact_dir }}/metadata.env
+          if-no-files-found: error
+
+      - name: Publish GitHub Release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ZIP_PATH: ${{ steps.artifacts.outputs.zip_path }}
+          DSYM_PATH: ${{ steps.artifacts.outputs.dsym_path }}
+        run: |
+          assets=("${ZIP_PATH}")
+          if [[ -n "${DSYM_PATH:-}" && -f "${DSYM_PATH}" ]]; then
+            assets+=("${DSYM_PATH}")
+          fi
+
+          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+            gh release upload "${GITHUB_REF_NAME}" "${assets[@]}" --clobber
+          else
+            gh release create "${GITHUB_REF_NAME}" "${assets[@]}" \
+              --title "AgentTutor ${GITHUB_REF_NAME#v}" \
+              --generate-notes
+          fi
