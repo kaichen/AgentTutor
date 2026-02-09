@@ -1,109 +1,114 @@
-# AgentTutor Release Guide
+# AgentTutor Releasing Guide
 
-This repository now ships a script-based release pipeline inspired by CodexBar's `Scripts/` workflow, but adapted for this Xcode project.
+This project uses script-first build/release automation plus GitHub Actions for CI and tag-based publishing.
 
 ## Script Matrix
 
 | Script | Purpose |
 |---|---|
-| `Scripts/build.sh` | Build app target (`Debug` by default) |
-| `Scripts/test.sh` | Run tests (`AgentTutorTests` by default) |
-| `Scripts/package_app.sh` | Archive and package `.app` + `.zip` (+ optional dSYM zip) |
-| `Scripts/release.sh` | End-to-end flow: build, test, package, optional notarize, optional GitHub release |
+| `Scripts/build.sh` | Build app target (`Debug` default) |
+| `Scripts/test.sh` | Run tests (`AgentTutorTests` default via `--unit`) |
+| `Scripts/package_app.sh` | Archive + package `.app`, `.zip`, optional `dSYM.zip` |
+| `Scripts/release.sh` | End-to-end local release flow with optional notarize and `gh` publish |
 
 ## Prerequisites
 
-- macOS with Xcode CLI tools
+- macOS with Xcode CLI tools installed
 - `xcodebuild`, `xcrun`, `ditto` available
-- `gh` authenticated if you use `--publish`
+- `gh` authenticated when using `--publish`
 - Notarization credentials only when using `--notarize`
 
-Notarization auth is supported in either mode:
+Notarization supports either mode:
 
-1. `NOTARYTOOL_PROFILE=<profile-name>` (keychain profile from `xcrun notarytool store-credentials`)
-2. App Store Connect API env vars:
+1. `NOTARYTOOL_PROFILE=<profile-name>` (created via `xcrun notarytool store-credentials`)
+2. App Store Connect API environment variables:
    - `APP_STORE_CONNECT_API_KEY_P8`
    - `APP_STORE_CONNECT_KEY_ID`
    - `APP_STORE_CONNECT_ISSUER_ID`
 
-## Local Build/Test
+## Daily Developer Commands
 
 ```bash
 ./Scripts/build.sh --configuration Debug
 ./Scripts/test.sh --unit
-./Scripts/test.sh --all   # includes UI tests
-```
-
-`Scripts/test.sh` stores result bundles under `Build/TestResults/`.
-
-## Package Release Artifacts
-
-```bash
 ./Scripts/package_app.sh --configuration Release
 ```
 
-Generated artifacts are placed under:
+Result bundles are written to `Build/TestResults/*.xcresult`.
 
-`Build/Artifacts/AgentTutor-<MARKETING_VERSION>-<CURRENT_PROJECT_VERSION>/`
+## Local Release Flow
 
-The folder includes:
-
-- `AgentTutor.app`
-- `AgentTutor-<version>-<build>.zip`
-- `AgentTutor-<version>-<build>.dSYM.zip` (if dSYM exists)
-- `metadata.env` (machine-readable paths and version metadata)
-
-## Release Flow
-
-Run the full pipeline:
+Run standard local release:
 
 ```bash
 ./Scripts/release.sh --configuration Release
 ```
 
-With notarization:
+Run with notarization:
 
 ```bash
-NOTARYTOOL_PROFILE=agenttutor-notary ./Scripts/release.sh --notarize
+NOTARYTOOL_PROFILE=agenttutor-notary ./Scripts/release.sh --configuration Release --notarize
 ```
 
-Create GitHub release after packaging:
+Run with notarization and GitHub release publishing:
 
 ```bash
-./Scripts/release.sh --notarize --publish --tag v1.0.0 --notes-file ./release-notes.md
+./Scripts/release.sh --configuration Release --notarize --publish --tag v1.0.0 --notes-file ./release-notes.md
 ```
 
-Notes:
+Important behavior:
 
-- `--publish` requires a clean git worktree.
-- If `--notes-file` is omitted, `gh --generate-notes` is used.
-- `--draft` can be combined with `--publish` to create draft releases.
-- Notarized output is emitted as `AgentTutor-<version>-<build>-notarized.zip`.
+- `--publish` requires a clean git worktree
+- If `--notes-file` is omitted, `gh --generate-notes` is used
+- `--draft` is valid only together with `--publish`
+- Notarized zip output is `AgentTutor-<version>-<build>-notarized.zip`
 
-## GitHub Actions Automation
+## Packaged Artifact Layout
 
-Two workflows are defined:
+`Scripts/package_app.sh` emits:
 
-1. `CI` (`.github/workflows/ci.yml`)
-2. `Tag Release` (`.github/workflows/tag-release.yml`)
+`Build/Artifacts/AgentTutor-<MARKETING_VERSION>-<CURRENT_PROJECT_VERSION>/`
 
-`Tag Release` behavior:
+Contents:
+
+- `AgentTutor.app`
+- `AgentTutor-<version>-<build>.zip`
+- `AgentTutor-<version>-<build>.dSYM.zip` (if available)
+- `metadata.env` (paths + version/build metadata)
+
+## GitHub Actions
+
+### CI workflow
+
+File: `.github/workflows/ci.yml`
+
+- Triggers: PR to `main`, push to `main`, manual dispatch
+- Runs: shell syntax checks -> debug build -> unit tests -> packaging smoke test
+- Uploads: `xcresult` bundle and packaging artifacts (when present)
+
+### Tag Release workflow
+
+File: `.github/workflows/tag-release.yml`
 
 - Trigger: push tag matching `v*`
-- Gate: tag name must exactly match `v<MARKETING_VERSION>`
-- Steps: unit test -> release packaging -> publish assets to GitHub Release
-- Assets: app zip + dSYM zip (if present)
+- Guard: tag must equal `v<MARKETING_VERSION>` from project build settings
+- Runs: unit tests -> release packaging -> upload workflow artifacts -> publish GitHub Release assets
+- Publishes: main zip and optional dSYM zip
 
 ## CI Signing Mode
 
-Both workflows run with:
+Both workflows set:
 
 `AGENTTUTOR_DISABLE_CODE_SIGNING=1`
 
-This disables code-signing requirements for hosted runners so CI and tag release can run without local signing certificates. For notarized/public distribution, keep using local release flow (or provision signing identities in CI and remove this override).
+This is intentional for hosted runners that do not have your local signing identities.  
+For signed/notarized public releases, use local `Scripts/release.sh --notarize` (or provision certs/profiles in CI and remove the override).
 
 ## Troubleshooting
 
-- `Path already exists`: scripts are fail-fast and do not overwrite archives/artifacts. Bump version/build or remove old artifact folders manually.
-- Notarization credential error: ensure either `NOTARYTOOL_PROFILE` or all `APP_STORE_CONNECT_*` vars are set.
-- UI tests hanging in CI/local automation: use `Scripts/test.sh --unit` for deterministic unit-test runs.
+- `Path already exists` from packaging scripts:
+  scripts are fail-fast and never overwrite artifact/archive paths; remove the old folder or bump version/build number.
+- Notarization credential errors:
+  confirm either `NOTARYTOOL_PROFILE` or all `APP_STORE_CONNECT_*` vars are set.
+- CI reports missing packaging artifact after earlier failed step:
+  check the first failing step (build/test); packaging upload is best-effort when files are absent.
