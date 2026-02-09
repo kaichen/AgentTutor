@@ -174,9 +174,11 @@ struct SetupViewModelTests {
     func startInstallSucceedsWithAllPassingCommands() async throws {
         let item = TestFixtures.makeItem(id: "a", name: "A", isRequired: true, defaultSelected: true)
         let shell = MockShellExecutor(results: [
+            // preflight verification fails (not installed yet)
+            ShellExecutionResult(exitCode: 1, stdout: "", stderr: "missing", timedOut: false),
             // install command succeeds
             ShellExecutionResult(exitCode: 0, stdout: "installed", stderr: "", timedOut: false),
-            // verification succeeds
+            // post-install verification succeeds
             ShellExecutionResult(exitCode: 0, stdout: "ok", stderr: "", timedOut: false),
         ])
 
@@ -195,13 +197,83 @@ struct SetupViewModelTests {
         #expect(vm.runState == .completed)
         #expect(vm.stage == .completion)
         #expect(vm.activeFailure == nil)
-        #expect(shell.invocations.count == 2)
+        #expect(shell.invocations.count == 3)
+    }
+
+    @Test
+    func startInstallSkipsCommandsWhenVerificationAlreadyPasses() async throws {
+        let item = TestFixtures.makeItem(id: "homebrew", name: "Homebrew", isRequired: true, defaultSelected: true)
+        let shell = MockShellExecutor(results: [
+            ShellExecutionResult(exitCode: 0, stdout: "brew", stderr: "", timedOut: false),
+        ])
+
+        let vm = SetupViewModel(
+            catalog: [item],
+            shell: shell,
+            advisor: MockRemediationAdvisor(),
+            logger: InstallLogger()
+        )
+        vm.apiKey = "sk-test"
+        vm.startInstall()
+
+        try await Task.sleep(nanoseconds: 500_000_000)
+
+        #expect(vm.runState == .completed)
+        #expect(shell.invocations.count == 1)
+        #expect(shell.invocations[0].command == item.verificationChecks[0].command)
+    }
+
+    @Test
+    func startInstallRunsAllVerificationChecksIndividually() async throws {
+        let checks = [
+            InstallVerificationCheck("pkg-a", command: "command -v a >/dev/null 2>&1"),
+            InstallVerificationCheck("pkg-b", command: "command -v b >/dev/null 2>&1"),
+            InstallVerificationCheck("pkg-c", command: "command -v c >/dev/null 2>&1"),
+        ]
+        let item = TestFixtures.makeItem(
+            id: "core-cli",
+            name: "Core CLI Tools",
+            isRequired: true,
+            defaultSelected: true,
+            verificationChecks: checks
+        )
+
+        let shell = MockShellExecutor(results: [
+            // Preflight checks (all missing)
+            ShellExecutionResult(exitCode: 1, stdout: "", stderr: "missing a", timedOut: false),
+            ShellExecutionResult(exitCode: 1, stdout: "", stderr: "missing b", timedOut: false),
+            ShellExecutionResult(exitCode: 1, stdout: "", stderr: "missing c", timedOut: false),
+            // Install succeeds
+            ShellExecutionResult(exitCode: 0, stdout: "installed", stderr: "", timedOut: false),
+            // Post-install verification checks (all present)
+            ShellExecutionResult(exitCode: 0, stdout: "a", stderr: "", timedOut: false),
+            ShellExecutionResult(exitCode: 0, stdout: "b", stderr: "", timedOut: false),
+            ShellExecutionResult(exitCode: 0, stdout: "c", stderr: "", timedOut: false),
+        ])
+
+        let vm = SetupViewModel(
+            catalog: [item],
+            shell: shell,
+            advisor: MockRemediationAdvisor(),
+            logger: InstallLogger()
+        )
+        vm.apiKey = "sk-test"
+        vm.startInstall()
+
+        try await Task.sleep(nanoseconds: 500_000_000)
+
+        #expect(vm.runState == .completed)
+        #expect(shell.invocations.count == 7)
+        #expect(shell.invocations[0].command == checks[0].command)
+        #expect(shell.invocations[1].command == checks[1].command)
+        #expect(shell.invocations[2].command == checks[2].command)
     }
 
     @Test
     func startInstallFailsOnCommandError() async throws {
         let item = TestFixtures.makeItem(id: "b", name: "B", isRequired: true, defaultSelected: true)
         let shell = MockShellExecutor(results: [
+            ShellExecutionResult(exitCode: 1, stdout: "", stderr: "not installed", timedOut: false),
             ShellExecutionResult(exitCode: 1, stdout: "", stderr: "command not found", timedOut: false),
         ])
         let advisor = MockRemediationAdvisor()
@@ -228,9 +300,11 @@ struct SetupViewModelTests {
     func startInstallFailsOnVerificationError() async throws {
         let item = TestFixtures.makeItem(id: "c", name: "C", isRequired: true, defaultSelected: true)
         let shell = MockShellExecutor(results: [
+            // preflight verification fails
+            ShellExecutionResult(exitCode: 1, stdout: "", stderr: "missing", timedOut: false),
             // install succeeds
             ShellExecutionResult(exitCode: 0, stdout: "ok", stderr: "", timedOut: false),
-            // verification fails
+            // post-install verification fails
             ShellExecutionResult(exitCode: 1, stdout: "", stderr: "not verified", timedOut: false),
         ])
 
@@ -275,6 +349,8 @@ struct SetupViewModelTests {
             TestFixtures.makeItem(id: "second", name: "Second", isRequired: true, defaultSelected: true),
         ]
         let shell = MockShellExecutor(results: [
+            // first preflight fails
+            ShellExecutionResult(exitCode: 1, stdout: "", stderr: "missing", timedOut: false),
             // first install fails
             ShellExecutionResult(exitCode: 1, stdout: "", stderr: "broken", timedOut: false),
         ])
@@ -292,8 +368,8 @@ struct SetupViewModelTests {
 
         #expect(vm.runState == .failed)
         #expect(vm.activeFailure?.itemID == "first")
-        // Second item should never have been attempted (only 1 shell invocation)
-        #expect(shell.invocations.count == 1)
+        // Second item should never have been attempted (first item only preflight + install)
+        #expect(shell.invocations.count == 2)
     }
 
     // MARK: - Remediation Command

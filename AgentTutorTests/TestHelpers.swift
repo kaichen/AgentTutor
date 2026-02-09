@@ -73,7 +73,7 @@ enum TestFixtures {
         defaultSelected: Bool = false,
         dependencies: [String] = [],
         commands: [InstallCommand] = [InstallCommand("echo install")],
-        verificationCommand: String = "echo ok",
+        verificationChecks: [InstallVerificationCheck] = [InstallVerificationCheck("default", command: "echo ok")],
         remediationHints: [String] = ["Try again"]
     ) -> InstallItem {
         InstallItem(
@@ -85,7 +85,7 @@ enum TestFixtures {
             defaultSelected: defaultSelected,
             dependencies: dependencies,
             commands: commands,
-            verificationCommand: verificationCommand,
+            verificationChecks: verificationChecks,
             remediationHints: remediationHints
         )
     }
