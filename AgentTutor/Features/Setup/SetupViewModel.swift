@@ -2,9 +2,14 @@ import AppKit
 import Combine
 import Foundation
 
+enum NavigationDirection: Sendable {
+    case forward, backward
+}
+
 @MainActor
 final class SetupViewModel: ObservableObject {
     @Published var stage: SetupStage = .welcome
+    @Published var navigationDirection: NavigationDirection = .forward
     @Published var apiKey: String = ""
     @Published var apiBaseURL: String = "https://api.openai.com"
     @Published var selectedItemIDs: Set<String>
@@ -18,6 +23,8 @@ final class SetupViewModel: ObservableObject {
     @Published var pendingRemediationCommand: String = ""
     @Published var isRunningRemediationCommand: Bool = false
     @Published var apiKeyValidationStatus: APIKeyValidationStatus = .idle
+    @Published private(set) var installStartTime: Date?
+    @Published private(set) var installEndTime: Date?
 
     let catalog: [InstallItem]
     let logger: InstallLogger
@@ -67,16 +74,40 @@ final class SetupViewModel: ObservableObject {
         logger.logFileURL.path
     }
 
+    var installProgress: Double {
+        guard !stepStates.isEmpty else { return 0 }
+        let done = stepStates.filter { $0.status == .succeeded || $0.status == .failed }.count
+        return Double(done) / Double(stepStates.count)
+    }
+
+    var successfulStepCount: Int {
+        stepStates.filter { $0.status == .succeeded }.count
+    }
+
+    var installDurationFormatted: String {
+        guard let start = installStartTime else { return "--" }
+        let end = installEndTime ?? Date()
+        let seconds = Int(end.timeIntervalSince(start))
+        let minutes = seconds / 60
+        let secs = seconds % 60
+        if minutes > 0 {
+            return "\(minutes)m \(secs)s"
+        }
+        return "\(secs)s"
+    }
+
     func moveNext() {
         guard let currentIndex = SetupStage.allCases.firstIndex(of: stage) else { return }
         let nextIndex = SetupStage.allCases.index(after: currentIndex)
         if nextIndex < SetupStage.allCases.endIndex {
+            navigationDirection = .forward
             stage = SetupStage.allCases[nextIndex]
         }
     }
 
     func moveBack() {
         guard let currentIndex = SetupStage.allCases.firstIndex(of: stage), currentIndex > 0 else { return }
+        navigationDirection = .backward
         stage = SetupStage.allCases[SetupStage.allCases.index(before: currentIndex)]
     }
 
@@ -107,6 +138,9 @@ final class SetupViewModel: ObservableObject {
         activeFailure = nil
         remediationAdvice = nil
         liveLog = []
+        navigationDirection = .forward
+        installStartTime = Date()
+        installEndTime = nil
 
         Task {
             await logger.log(level: .info, message: "Install session started", metadata: ["selected_items": String(selectedItemIDs.count)])
@@ -126,6 +160,7 @@ final class SetupViewModel: ObservableObject {
                     if let failure = await execute(item: item) {
                         updateStep(itemID: item.id, status: .failed, output: failure.output)
                         runState = .failed
+                        installEndTime = Date()
                         activeFailure = failure
                         appendLog("Failed: \(item.name)")
                         await logger.log(level: .error, message: "Step failed", metadata: [
@@ -149,6 +184,7 @@ final class SetupViewModel: ObservableObject {
                 }
 
                 runState = .completed
+                installEndTime = Date()
                 stage = .completion
                 await logger.log(level: .info, message: "Install session completed")
             } catch {
