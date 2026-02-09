@@ -42,3 +42,15 @@
 - Release publishing strategy:
   - build release artifacts via project scripts
   - publish assets with `gh release create/upload` for idempotent reruns (`--clobber`).
+
+## 2026-02-09 Deep review follow-up decisions
+- Product policy was confirmed to directly block installation start when API key/base URL validation fails.
+- Runtime policy was confirmed to use Homebrew `node@22` and Homebrew `python@3.10` as baseline environment targets.
+- `nvm` is treated as optional future-development tooling, not baseline environment requirement.
+
+## 2026-02-09 Brew verification optimization findings
+- `brew list` default output does not include casks, so reliable package inventory needs two queries:
+  - `brew list --formula`
+  - `brew list --cask`
+- CLI/Cask verification can be mapped to a stable package identity (`formula`/`cask` + package name) and validated against cached inventory sets.
+- Cache invalidation is required after successful install commands, otherwise post-install verification may read stale package state.

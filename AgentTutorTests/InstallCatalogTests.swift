@@ -88,17 +88,23 @@ struct InstallCatalogTests {
     }
 
     @Test
-    func desktopAppVerificationUsesApplicationChecks() {
+    func caskVerificationChecksUseBrewPackageMetadata() {
         guard let vscode = InstallCatalog.allItems.first(where: { $0.id == "vscode" }) else {
             Issue.record("vscode item missing from catalog")
             return
         }
 
         let command = vscode.verificationChecks[0].command
-        #expect(command.contains("/Applications/Visual Studio Code.app"))
-        #expect(command.contains("$HOME/Applications/Visual Studio Code.app"))
-        #expect(command.contains("open -Ra \"Visual Studio Code\""))
-        #expect(!command.contains("brew"))
+        #expect(command.contains("brew list --cask visual-studio-code"))
+        #expect(vscode.verificationChecks[0].brewPackage?.name == "visual-studio-code")
+        #expect(vscode.verificationChecks[0].brewPackage?.kind == .cask)
+
+        guard let codex = InstallCatalog.allItems.first(where: { $0.id == "codex-cli" }) else {
+            Issue.record("codex-cli item missing from catalog")
+            return
+        }
+        #expect(codex.verificationChecks[0].brewPackage?.name == "codex")
+        #expect(codex.verificationChecks[0].brewPackage?.kind == .cask)
     }
 
     @Test
@@ -116,6 +122,9 @@ struct InstallCatalogTests {
         #expect(checkNames.contains("gh"))
         #expect(checkNames.contains("nvm"))
         #expect(checkNames.contains("uv"))
+
+        let missingBrewMetadata = coreCLI.verificationChecks.filter { $0.brewPackage == nil }
+        #expect(missingBrewMetadata.isEmpty, "Core CLI checks should declare brew package metadata")
     }
 
     @Test
@@ -131,5 +140,7 @@ struct InstallCatalogTests {
 
         let brewCheck = nodeLTS.verificationChecks.first { $0.name == "node@22 installed" }
         #expect(brewCheck?.command.contains("brew list node@22") == true)
+        #expect(brewCheck?.brewPackage?.name == "node@22")
+        #expect(brewCheck?.brewPackage?.kind == .formula)
     }
 }

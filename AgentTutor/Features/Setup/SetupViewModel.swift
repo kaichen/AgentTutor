@@ -33,6 +33,8 @@ final class SetupViewModel: ObservableObject {
     private let shell: ShellExecuting
     private let advisor: RemediationAdvising
     private var apiKeyValidationTask: Task<Void, Never>?
+    private var brewPackageCache: BrewPackageCache?
+    private var brewPackageCacheLoaded = false
 
     convenience init() {
         self.init(
@@ -141,6 +143,7 @@ final class SetupViewModel: ObservableObject {
         navigationDirection = .forward
         installStartTime = Date()
         installEndTime = nil
+        invalidateBrewPackageCache()
 
         Task {
             await logger.log(level: .info, message: "Install session started", metadata: ["selected_items": String(selectedItemIDs.count)])
@@ -299,11 +302,49 @@ final class SetupViewModel: ObservableObject {
         let result: ShellExecutionResult
     }
 
+    private struct BrewPackageCache {
+        let formulas: Set<String>
+        let casks: Set<String>
+
+        func contains(_ package: BrewPackageReference) -> Bool {
+            switch package.kind {
+            case .formula:
+                return formulas.contains(package.name)
+            case .cask:
+                return casks.contains(package.name)
+            }
+        }
+    }
+
     private func runVerificationChecks(for item: InstallItem, phase: String) async -> VerificationFailureDetail? {
         var firstFailure: VerificationFailureDetail?
 
         for check in item.verificationChecks {
             appendLog("\(phase): \(item.name) - \(check.name)")
+
+            if let brewPackage = check.brewPackage,
+               let installed = await cachedBrewPackageInstalledStatus(for: brewPackage) {
+                if installed {
+                    appendLog("Check passed: \(check.name) (cached brew list)")
+                    continue
+                }
+
+                let kindLabel = brewPackage.kind == .formula ? "formula" : "cask"
+                let result = ShellExecutionResult(
+                    exitCode: 1,
+                    stdout: "",
+                    stderr: "\(kindLabel) '\(brewPackage.name)' not found in cached brew list.",
+                    timedOut: false
+                )
+
+                appendLog(result.combinedOutput)
+                appendLog("Check failed: \(check.name)")
+
+                if firstFailure == nil {
+                    firstFailure = VerificationFailureDetail(check: check, result: result)
+                }
+                continue
+            }
 
             let result = await shell.run(
                 command: check.command,
@@ -365,6 +406,9 @@ final class SetupViewModel: ObservableObject {
                     timedOut: result.timedOut
                 )
             }
+
+            // Installation commands can change Homebrew package state; refresh cache for post-verify.
+            invalidateBrewPackageCache()
         }
 
         if let verificationFailure = await runVerificationChecks(for: item, phase: "Verify") {
@@ -430,5 +474,62 @@ final class SetupViewModel: ObservableObject {
         Task {
             await logger.log(level: .info, message: line)
         }
+    }
+
+    private func invalidateBrewPackageCache() {
+        brewPackageCache = nil
+        brewPackageCacheLoaded = false
+    }
+
+    private func cachedBrewPackageInstalledStatus(for package: BrewPackageReference) async -> Bool? {
+        guard let cache = await loadBrewPackageCacheIfNeeded() else {
+            return nil
+        }
+        return cache.contains(package)
+    }
+
+    private func loadBrewPackageCacheIfNeeded() async -> BrewPackageCache? {
+        if brewPackageCacheLoaded {
+            return brewPackageCache
+        }
+        brewPackageCacheLoaded = true
+
+        let formulaResult = await shell.run(
+            command: "command -v brew >/dev/null 2>&1 && brew list --formula",
+            requiresAdmin: false,
+            timeoutSeconds: 120
+        )
+        let caskResult = await shell.run(
+            command: "command -v brew >/dev/null 2>&1 && brew list --cask",
+            requiresAdmin: false,
+            timeoutSeconds: 120
+        )
+
+        guard formulaResult.exitCode == 0, caskResult.exitCode == 0 else {
+            appendLog("Brew cache unavailable. Falling back to command checks.")
+            await logger.log(level: .warning, message: "Unable to load Homebrew package cache", metadata: [
+                "formula_exit_code": String(formulaResult.exitCode),
+                "cask_exit_code": String(caskResult.exitCode)
+            ])
+            brewPackageCache = nil
+            return nil
+        }
+
+        let cache = BrewPackageCache(
+            formulas: parseBrewPackageNames(from: formulaResult.stdout),
+            casks: parseBrewPackageNames(from: caskResult.stdout)
+        )
+        brewPackageCache = cache
+        appendLog("Loaded brew cache: \(cache.formulas.count) formulae, \(cache.casks.count) casks.")
+        return cache
+    }
+
+    private func parseBrewPackageNames(from output: String) -> Set<String> {
+        Set(
+            output
+                .split(whereSeparator: \.isNewline)
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+        )
     }
 }

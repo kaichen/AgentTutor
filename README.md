@@ -13,12 +13,18 @@ It runs a guided setup flow, installs a curated toolchain, verifies each compone
 - Session JSONL logs in `~/Library/Application Support/AgentTutor/logs/`
 - API key is in-memory only and never written to disk
 
+## Policy Decisions (2026-02-09)
+
+- Installation start must be blocked unless API key/base URL validation succeeds.
+- Environment baseline is Homebrew `node@22` + Homebrew `python@3.10`.
+- `nvm` remains in Core CLI as an optional future-development tool, not a baseline environment requirement.
+
 ## Requirements
 
 - macOS 14+
 - Apple Silicon (M1+)
 - Xcode 16+ (CI currently runs Xcode 16.4 image)
-- OpenAI API key is required before install can start (UI provides lightweight live validation)
+- OpenAI API key/base URL validation is required before install can start
 
 ## Repository Layout
 
@@ -55,8 +61,8 @@ Single source of truth: `AgentTutor/Core/Install/InstallCatalog.swift`.
 | Xcode Command Line Tools | Yes | Yes | System |
 | Homebrew | Yes | Yes | System |
 | Core CLI Tools (`rg`, `fd`, `jq`, `yq`, `gh`, `uv`, `nvm`) | Yes | Yes | CLI Tools |
-| Node.js LTS (`nvm`) | No | Yes | Runtimes |
-| Python 3 (`brew`) | No | Yes | Runtimes |
+| Node.js 22 LTS (`node@22` via Homebrew) | No | Yes | Runtimes |
+| Python 3.10 (`python@3.10` via Homebrew) | No | Yes | Runtimes |
 | Visual Studio Code | No | Yes | Desktop Apps |
 | Codex CLI | No | Yes | Desktop Apps |
 | GitHub CLI Login | Yes | Yes | Authentication |

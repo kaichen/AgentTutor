@@ -78,3 +78,33 @@ Create production-ready GitHub Actions for automated CI validation and automatic
 | Error | Attempt | Resolution |
 |---|---:|---|
 | Hosted CI runners may fail due missing signing identity | 1 | Added `AGENTTUTOR_DISABLE_CODE_SIGNING` support in scripts and enabled it in workflows |
+
+## 2026-02-09 Task: Policy Clarification (Install Gating + Runtime Baseline)
+
+### Goal
+Record accepted product policy decisions from deep code review follow-up.
+
+### Phases
+1. [completed] Confirm decision on API key/base URL gating behavior.
+2. [completed] Confirm decision on runtime baseline and `nvm` positioning.
+3. [completed] Sync canonical documentation (`README`, V1 design plan).
+
+### Decisions
+- Installation start must be blocked unless API key and base URL validation succeed.
+- Baseline runtime configuration is Homebrew `node@22` and Homebrew `python@3.10`.
+- `nvm` is considered optional/future-development tooling rather than a baseline runtime requirement.
+
+## 2026-02-09 Task: Brew Verification Cache Optimization
+
+### Goal
+Optimize CLI/Cask installation verification by preloading Homebrew package inventory once and reusing it across checks.
+
+### Phases
+1. [completed] Extend verification model to describe brew formula/cask package identity.
+2. [completed] Implement one-time Homebrew inventory loading and cache-backed check path.
+3. [completed] Update catalog/test coverage and validate with unit tests.
+
+### Decisions
+- Verify CLI/Cask package presence via cached `brew list --formula` and `brew list --cask` results.
+- Fall back to command-based checks only when cache loading fails.
+- Invalidate cache after successful install command execution to keep post-install verification accurate.

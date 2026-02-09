@@ -270,6 +270,60 @@ struct SetupViewModelTests {
     }
 
     @Test
+    func startInstallUsesSingleBrewCacheForAllBrewPackageChecks() async throws {
+        let formulaCheck = InstallVerificationCheck(
+            "pkg-a",
+            command: "brew list pkg-a >/dev/null 2>&1",
+            brewPackage: BrewPackageReference("pkg-a")
+        )
+        let caskCheck = InstallVerificationCheck(
+            "pkg-b",
+            command: "brew list --cask pkg-b >/dev/null 2>&1",
+            brewPackage: BrewPackageReference("pkg-b", kind: .cask)
+        )
+
+        let catalog = [
+            TestFixtures.makeItem(
+                id: "a",
+                name: "A",
+                isRequired: true,
+                defaultSelected: true,
+                verificationChecks: [formulaCheck]
+            ),
+            TestFixtures.makeItem(
+                id: "b",
+                name: "B",
+                category: .apps,
+                isRequired: true,
+                defaultSelected: true,
+                verificationChecks: [caskCheck]
+            ),
+        ]
+
+        let shell = MockShellExecutor(results: [
+            ShellExecutionResult(exitCode: 0, stdout: "pkg-a\n", stderr: "", timedOut: false),
+            ShellExecutionResult(exitCode: 0, stdout: "pkg-b\n", stderr: "", timedOut: false),
+        ])
+        let vm = SetupViewModel(
+            catalog: catalog,
+            shell: shell,
+            advisor: MockRemediationAdvisor(),
+            logger: InstallLogger()
+        )
+        vm.apiKey = "sk-test"
+        vm.startInstall()
+
+        try await Task.sleep(nanoseconds: 500_000_000)
+
+        #expect(vm.runState == .completed)
+        #expect(shell.invocations.count == 2)
+        #expect(shell.invocations[0].command.contains("brew list --formula"))
+        #expect(shell.invocations[1].command.contains("brew list --cask"))
+        #expect(!shell.invocations.contains(where: { $0.command == formulaCheck.command }))
+        #expect(!shell.invocations.contains(where: { $0.command == caskCheck.command }))
+    }
+
+    @Test
     func startInstallFailsOnCommandError() async throws {
         let item = TestFixtures.makeItem(id: "b", name: "B", isRequired: true, defaultSelected: true)
         let shell = MockShellExecutor(results: [

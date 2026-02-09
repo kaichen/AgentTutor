@@ -56,3 +56,26 @@
   - `AGENTTUTOR_DISABLE_CODE_SIGNING=1 ./Scripts/test.sh --unit` ✅
   - `AGENTTUTOR_DISABLE_CODE_SIGNING=1 ./Scripts/package_app.sh --configuration Release --output-dir Build/ArtifactsCISignedOff` ✅
   - `AGENTTUTOR_DISABLE_CODE_SIGNING=1 ./Scripts/release.sh --configuration Release --skip-tests --output-dir Build/ArtifactsReleaseWorkflowSmoke` ✅
+
+## 2026-02-09 (Deep Review follow-up policy logging)
+- Recorded accepted policy decisions in canonical docs:
+  - `README.md` (`Policy Decisions`, requirements wording, runtime catalog wording)
+  - `docs/plans/2026-02-08-agenttutor-v1-design.md` (scope + runtime policy note)
+  - `task_plan.md` / `findings.md` (decision log)
+- Confirmed policy:
+  - Installation start should be directly blocked unless API key/base URL validation succeeds.
+  - Runtime baseline is Homebrew `node@22` + `python@3.10`; `nvm` is optional future-development tooling.
+
+## 2026-02-09 (Brew verification cache optimization)
+- Added brew package identity metadata to verification checks (`formula` / `cask` + package name).
+- Updated install catalog so CLI/Cask checks (`core-cli`, `node@22`, `python@3.10`, `vscode`, `codex-cli`) can use cache-backed verification.
+- Implemented SetupViewModel cache-backed verification flow:
+  - load Homebrew inventory once per run (`brew list --formula` + `brew list --cask`)
+  - reuse cached sets for all brew-package checks
+  - invalidate cache after successful install command to keep post-install verification correct
+  - fall back to command checks if cache cannot be loaded
+- Added/updated tests:
+  - `InstallCatalogTests` for cask metadata and brew metadata completeness
+  - `SetupViewModelTests.startInstallUsesSingleBrewCacheForAllBrewPackageChecks`
+- Validation status:
+  - `./Scripts/test.sh --unit` ✅

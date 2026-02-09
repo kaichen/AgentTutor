@@ -31,6 +31,21 @@ enum InstallCategory: String, CaseIterable, Codable, Sendable {
     case auth = "Authentication"
 }
 
+enum BrewPackageKind: String, Codable, Sendable {
+    case formula
+    case cask
+}
+
+struct BrewPackageReference: Hashable, Codable, Sendable {
+    let name: String
+    let kind: BrewPackageKind
+
+    init(_ name: String, kind: BrewPackageKind = .formula) {
+        self.name = name
+        self.kind = kind
+    }
+}
+
 struct InstallCommand: Hashable, Codable, Sendable {
     let shell: String
     let requiresAdmin: Bool
@@ -47,11 +62,18 @@ struct InstallVerificationCheck: Hashable, Codable, Sendable {
     let name: String
     let command: String
     let timeoutSeconds: TimeInterval
+    let brewPackage: BrewPackageReference?
 
-    init(_ name: String, command: String, timeoutSeconds: TimeInterval = 120) {
+    init(
+        _ name: String,
+        command: String,
+        timeoutSeconds: TimeInterval = 120,
+        brewPackage: BrewPackageReference? = nil
+    ) {
         self.name = name
         self.command = command
         self.timeoutSeconds = timeoutSeconds
+        self.brewPackage = brewPackage
     }
 }
 

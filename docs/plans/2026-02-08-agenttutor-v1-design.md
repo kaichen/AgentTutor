@@ -7,6 +7,7 @@ AgentTutor V1 is a macOS desktop setup assistant for non-technical users on Appl
 Confirmed scope:
 - API key is mandatory before installation starts.
 - API key is session-only (no persistence).
+- Installation must be directly blocked when API key/base URL validation fails.
 - Fixed install catalog with user toggles.
 - Fail-fast execution (stop on first failure).
 - Human approval required before any remediation command execution.
@@ -21,11 +22,15 @@ V1 catalog:
 - Xcode Command Line Tools
 - Homebrew
 - Core CLI: ripgrep, fd, jq, yq, gh, uv, nvm
-- Node.js LTS (nvm)
-- Python 3
+- Node.js 22 LTS (Homebrew `node@22`)
+- Python 3.10 (Homebrew `python@3.10`)
 - Visual Studio Code
 - Codex CLI
 - GitHub CLI login (required)
+
+Runtime policy note:
+- Baseline environment runtime targets are `node@22` and `python@3.10`.
+- `nvm` is retained only for future development workflows and is not a baseline runtime requirement.
 
 Each item contains:
 - user-visible metadata
