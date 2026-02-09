@@ -29,14 +29,40 @@
 		102B08A32F38F9A900AB6E83 /* AgentTutorUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AgentTutorUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		F1A2B3C42F39000100AB6E83 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				"Core/AI/CLAUDE.md",
+				"Core/CLAUDE.md",
+				"Core/Install/CLAUDE.md",
+				"Features/Setup/CLAUDE.md",
+			);
+			target = 102B088B2F38F9A800AB6E83 /* AgentTutor */;
+		};
+		F1A2B3C42F39000200AB6E83 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				CLAUDE.md,
+			);
+			target = 102B08982F38F9A900AB6E83 /* AgentTutorTests */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		102B088E2F38F9A800AB6E83 /* AgentTutor */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				F1A2B3C42F39000100AB6E83 /* PBXFileSystemSynchronizedBuildFileExceptionSet */,
+			);
 			path = AgentTutor;
 			sourceTree = "<group>";
 		};
 		102B089C2F38F9A900AB6E83 /* AgentTutorTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				F1A2B3C42F39000200AB6E83 /* PBXFileSystemSynchronizedBuildFileExceptionSet */,
+			);
 			path = AgentTutorTests;
 			sourceTree = "<group>";
 		};
@@ -398,7 +424,7 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 5EE3MRCZ7T;
-				ENABLE_APP_SANDBOX = YES;
+				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
@@ -430,7 +456,7 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 5EE3MRCZ7T;
-				ENABLE_APP_SANDBOX = YES;
+				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
