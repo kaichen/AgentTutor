@@ -12,13 +12,58 @@ enum SetupStage: Int, CaseIterable {
         case .welcome:
             return "Welcome"
         case .apiKey:
-            return "OpenAI Key"
+            return "LLM Key"
         case .selection:
             return "Choose Components"
         case .install:
             return "Install"
         case .completion:
             return "Complete"
+        }
+    }
+}
+
+enum LLMProvider: String, CaseIterable, Identifiable, Codable, Sendable {
+    case openai
+    case openrouter
+    case kimi
+    case minimax
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .openai:
+            return "OpenAI"
+        case .openrouter:
+            return "OpenRouter"
+        case .kimi:
+            return "Kimi"
+        case .minimax:
+            return "MiniMax"
+        }
+    }
+
+    // Keep provider defaults centralized and aligned with onboarding defaults.
+    var defaultBaseURL: String {
+        switch self {
+        case .openai:
+            return "https://api.openai.com/v1"
+        case .openrouter:
+            return "https://openrouter.ai/api/v1"
+        case .kimi:
+            return "https://api.moonshot.ai/v1"
+        case .minimax:
+            return "https://api.minimax.io/v1"
+        }
+    }
+
+    var apiKeyPlaceholder: String {
+        switch self {
+        case .openrouter:
+            return "sk-or-..."
+        default:
+            return "sk-..."
         }
     }
 }

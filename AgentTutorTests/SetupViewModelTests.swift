@@ -107,6 +107,30 @@ struct SetupViewModelTests {
         #expect(!vm.canStartInstall)
     }
 
+    @Test
+    func providerDefaultsToOpenAIBaseURL() {
+        let vm = makeVM()
+        #expect(vm.apiProvider == .openai)
+        #expect(vm.apiBaseURL == LLMProvider.openai.defaultBaseURL)
+    }
+
+    @Test
+    func changingProviderResetsBaseURLToProviderDefault() {
+        let vm = makeVM()
+        vm.apiBaseURL = "https://custom.example.com/v1"
+        vm.apiProvider = .openrouter
+        vm.onProviderChanged()
+        #expect(vm.apiBaseURL == LLMProvider.openrouter.defaultBaseURL)
+
+        vm.apiProvider = .kimi
+        vm.onProviderChanged()
+        #expect(vm.apiBaseURL == LLMProvider.kimi.defaultBaseURL)
+
+        vm.apiProvider = .minimax
+        vm.onProviderChanged()
+        #expect(vm.apiBaseURL == LLMProvider.minimax.defaultBaseURL)
+    }
+
     // MARK: - Selection Logic
 
     @Test

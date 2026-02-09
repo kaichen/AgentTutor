@@ -136,8 +136,15 @@ final class RemediationAdvisor: RemediationAdvising {
             ]
         ]
 
-        let endpoint = baseURL.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-        var request = URLRequest(url: URL(string: "\(endpoint)/v1/responses")!)
+        guard let endpointURL = Self.endpointURL(baseURL: baseURL, path: "/responses") else {
+            throw NSError(
+                domain: "RemediationAdvisor",
+                code: -3,
+                userInfo: [NSLocalizedDescriptionKey: "Invalid base URL"]
+            )
+        }
+
+        var request = URLRequest(url: endpointURL)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
         request.addValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
@@ -194,5 +201,16 @@ final class RemediationAdvisor: RemediationAdvising {
             return text
         }
         return String(text[start...end])
+    }
+
+    private static func endpointURL(baseURL: String, path: String) -> URL? {
+        let normalizedBase = baseURL
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        guard !normalizedBase.isEmpty else {
+            return nil
+        }
+        let normalizedPath = path.hasPrefix("/") ? path : "/\(path)"
+        return URL(string: normalizedBase + normalizedPath)
     }
 }

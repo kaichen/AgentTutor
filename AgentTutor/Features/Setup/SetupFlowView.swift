@@ -47,9 +47,11 @@ struct SetupFlowView: View {
             WelcomeView()
         case .apiKey:
             APIKeyView(
+                provider: $viewModel.apiProvider,
                 apiKey: $viewModel.apiKey,
                 baseURL: $viewModel.apiBaseURL,
                 validationStatus: viewModel.apiKeyValidationStatus,
+                onProviderChanged: { viewModel.onProviderChanged() },
                 onKeyChanged: { viewModel.onAPIKeyChanged() },
                 onBaseURLChanged: { viewModel.onBaseURLChanged() }
             )
@@ -194,7 +196,7 @@ private struct FeatureInfo: Identifiable {
 private struct WelcomeView: View {
     private let features = [
         FeatureInfo("checkmark.shield", "Apple Silicon Ready", "Full support for macOS 14 & 15 on Apple Silicon"),
-        FeatureInfo("key", "OpenAI Integration", "API key required for AI-powered setup assistance"),
+        FeatureInfo("key", "LLM Provider Support", "Works with OpenAI, OpenRouter, Kimi, and MiniMax keys"),
         FeatureInfo("wrench.and.screwdriver", "Fail-Fast Recovery", "Every failure stops immediately with fix commands"),
         FeatureInfo("doc.text", "Diagnostic Logs", "Structured logs kept locally for troubleshooting"),
     ]
@@ -242,30 +244,58 @@ private struct WelcomeView: View {
 // MARK: - API Key
 
 private struct APIKeyView: View {
+    @Binding var provider: LLMProvider
     @Binding var apiKey: String
     @Binding var baseURL: String
     let validationStatus: APIKeyValidationStatus
+    let onProviderChanged: () -> Void
     let onKeyChanged: () -> Void
     let onBaseURLChanged: () -> Void
+    @State private var isBaseURLExpanded = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("OpenAI API Configuration")
+            Text("LLM API Configuration")
                 .font(.title3)
                 .fontWeight(.semibold)
 
-            Text("Base URL")
+            Text("Provider")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
-            TextField("https://api.openai.com", text: $baseURL)
-                .textFieldStyle(.roundedBorder)
-                .onChange(of: baseURL) { onBaseURLChanged() }
+            Picker("Provider", selection: $provider) {
+                ForEach(LLMProvider.allCases) { item in
+                    Text(item.displayName).tag(item)
+                }
+            }
+            .pickerStyle(.segmented)
+            .onChange(of: provider) { onProviderChanged() }
+
+            DisclosureGroup(isExpanded: $isBaseURLExpanded) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Base URL")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    TextField(provider.defaultBaseURL, text: $baseURL)
+                        .textFieldStyle(.roundedBorder)
+                        .onChange(of: baseURL) { onBaseURLChanged() }
+                }
+                .padding(.top, 4)
+            } label: {
+                HStack {
+                    Text("Base URL")
+                    Spacer()
+                    Text(baseURL)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
 
             Text("API Key")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
             HStack(spacing: 8) {
-                SecureField("sk-...", text: $apiKey)
+                SecureField(provider.apiKeyPlaceholder, text: $apiKey)
                     .textFieldStyle(.roundedBorder)
                     .onChange(of: apiKey) { onKeyChanged() }
 
@@ -297,6 +327,10 @@ private struct APIKeyView: View {
                     .font(.footnote)
                     .foregroundStyle(.red)
             }
+
+            Text("Base URL auto-switches with provider. Expand Base URL only if you need a custom endpoint.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
 
             Text("The key is kept in memory for this session only. It is never saved to disk.")
                 .font(.footnote)

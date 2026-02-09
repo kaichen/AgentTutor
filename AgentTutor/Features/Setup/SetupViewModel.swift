@@ -10,8 +10,9 @@ enum NavigationDirection: Sendable {
 final class SetupViewModel: ObservableObject {
     @Published var stage: SetupStage = .welcome
     @Published var navigationDirection: NavigationDirection = .forward
+    @Published var apiProvider: LLMProvider = .openai
     @Published var apiKey: String = ""
-    @Published var apiBaseURL: String = "https://api.openai.com"
+    @Published var apiBaseURL: String = LLMProvider.openai.defaultBaseURL
     @Published var selectedItemIDs: Set<String>
     @Published var stepStates: [InstallStepState] = []
     @Published var runState: InstallRunState = .idle
@@ -249,6 +250,11 @@ final class SetupViewModel: ObservableObject {
         revalidateAPIKey()
     }
 
+    func onProviderChanged() {
+        apiBaseURL = apiProvider.defaultBaseURL
+        revalidateAPIKey()
+    }
+
     func onBaseURLChanged() {
         revalidateAPIKey()
     }
@@ -272,8 +278,7 @@ final class SetupViewModel: ObservableObject {
     }
 
     private static func checkAPIKey(_ key: String, baseURL: String) async -> APIKeyValidationStatus {
-        let endpoint = baseURL.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-        guard let url = URL(string: "\(endpoint)/v1/models") else {
+        guard let url = endpointURL(baseURL: baseURL, path: "/models") else {
             return .invalid("Invalid base URL")
         }
         var request = URLRequest(url: url)
@@ -295,6 +300,17 @@ final class SetupViewModel: ObservableObject {
         } catch {
             return .invalid(error.localizedDescription)
         }
+    }
+
+    private static func endpointURL(baseURL: String, path: String) -> URL? {
+        let normalizedBase = baseURL
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        guard !normalizedBase.isEmpty else {
+            return nil
+        }
+        let normalizedPath = path.hasPrefix("/") ? path : "/\(path)"
+        return URL(string: normalizedBase + normalizedPath)
     }
 
     private struct VerificationFailureDetail {
