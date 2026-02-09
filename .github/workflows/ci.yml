@@ -61,4 +61,4 @@ jobs:
           path: |
             Build/ArtifactsCI/**/*.zip
             Build/ArtifactsCI/**/metadata.env
-          if-no-files-found: error
+          if-no-files-found: ignore
