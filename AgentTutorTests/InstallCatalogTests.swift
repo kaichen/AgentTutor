@@ -36,9 +36,13 @@ struct InstallCatalogTests {
     }
 
     @Test
-    func allItemsHaveVerificationCommand() {
+    func allItemsHaveVerificationChecks() {
         for item in InstallCatalog.allItems {
-            #expect(!item.verificationCommand.isEmpty, "\(item.id) has no verification command")
+            #expect(!item.verificationChecks.isEmpty, "\(item.id) has no verification checks")
+            for check in item.verificationChecks {
+                #expect(!check.command.isEmpty, "\(item.id) has empty verification check command")
+                #expect(!check.name.isEmpty, "\(item.id) has unnamed verification check")
+            }
         }
     }
 
@@ -81,5 +85,36 @@ struct InstallCatalogTests {
                 #expect(cmd.timeoutSeconds > 0, "\(item.id) has non-positive timeout")
             }
         }
+    }
+
+    @Test
+    func desktopAppVerificationUsesApplicationChecks() {
+        guard let vscode = InstallCatalog.allItems.first(where: { $0.id == "vscode" }) else {
+            Issue.record("vscode item missing from catalog")
+            return
+        }
+
+        let command = vscode.verificationChecks[0].command
+        #expect(command.contains("/Applications/Visual Studio Code.app"))
+        #expect(command.contains("$HOME/Applications/Visual Studio Code.app"))
+        #expect(command.contains("open -Ra \"Visual Studio Code\""))
+        #expect(!command.contains("brew"))
+    }
+
+    @Test
+    func coreCLIVerificationChecksEachPackageIndividually() {
+        guard let coreCLI = InstallCatalog.allItems.first(where: { $0.id == "core-cli" }) else {
+            Issue.record("core-cli item missing from catalog")
+            return
+        }
+
+        let checkNames = Set(coreCLI.verificationChecks.map(\.name))
+        #expect(checkNames.contains("ripgrep (rg)"))
+        #expect(checkNames.contains("fd"))
+        #expect(checkNames.contains("jq"))
+        #expect(checkNames.contains("yq"))
+        #expect(checkNames.contains("gh"))
+        #expect(checkNames.contains("uv"))
+        #expect(checkNames.contains("nvm"))
     }
 }

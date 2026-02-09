@@ -52,7 +52,7 @@ struct InstallPlannerTests {
                 defaultSelected: true,
                 dependencies: ["missing"],
                 commands: [InstallCommand("echo demo")],
-                verificationCommand: "echo ok",
+                verificationChecks: [InstallVerificationCheck("demo", command: "echo ok")],
                 remediationHints: []
             )
         ]

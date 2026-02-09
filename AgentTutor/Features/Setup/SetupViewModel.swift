@@ -258,7 +258,57 @@ final class SetupViewModel: ObservableObject {
         }
     }
 
+    private struct VerificationFailureDetail {
+        let check: InstallVerificationCheck
+        let result: ShellExecutionResult
+    }
+
+    private func runVerificationChecks(for item: InstallItem, phase: String) async -> VerificationFailureDetail? {
+        var firstFailure: VerificationFailureDetail?
+
+        for check in item.verificationChecks {
+            appendLog("\(phase): \(item.name) - \(check.name)")
+
+            let result = await shell.run(
+                command: check.command,
+                requiresAdmin: false,
+                timeoutSeconds: check.timeoutSeconds
+            )
+
+            appendLog(result.combinedOutput)
+
+            if result.exitCode != 0 {
+                appendLog("Check failed: \(check.name)")
+                if firstFailure == nil {
+                    firstFailure = VerificationFailureDetail(check: check, result: result)
+                }
+                continue
+            }
+
+            appendLog("Check passed: \(check.name)")
+        }
+
+        return firstFailure
+    }
+
     private func execute(item: InstallItem) async -> InstallFailure? {
+        guard !item.verificationChecks.isEmpty else {
+            return InstallFailure(
+                itemID: item.id,
+                itemName: item.name,
+                failedCommand: "(missing verification checks)",
+                output: "Configuration error: \(item.id) has no verification checks.",
+                exitCode: -1,
+                timedOut: false
+            )
+        }
+
+        let preflightFailure = await runVerificationChecks(for: item, phase: "Check")
+        if preflightFailure == nil {
+            appendLog("Already installed: \(item.name). Skipping install command.")
+            return nil
+        }
+
         for command in item.commands {
             let result = await shell.run(
                 command: command.shell,
@@ -281,23 +331,14 @@ final class SetupViewModel: ObservableObject {
             }
         }
 
-        let verification = await shell.run(
-            command: item.verificationCommand,
-            requiresAdmin: false,
-            timeoutSeconds: 120
-        )
-
-        appendLog("Verify: \(item.name)")
-        appendLog(verification.combinedOutput)
-
-        if verification.exitCode != 0 {
+        if let verificationFailure = await runVerificationChecks(for: item, phase: "Verify") {
             return InstallFailure(
                 itemID: item.id,
                 itemName: item.name,
-                failedCommand: item.verificationCommand,
-                output: verification.combinedOutput,
-                exitCode: verification.exitCode,
-                timedOut: verification.timedOut
+                failedCommand: verificationFailure.check.command,
+                output: "[\(verificationFailure.check.name)] \(verificationFailure.result.combinedOutput)",
+                exitCode: verificationFailure.result.exitCode,
+                timedOut: verificationFailure.result.timedOut
             )
         }
 

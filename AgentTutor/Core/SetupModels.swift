@@ -43,6 +43,18 @@ struct InstallCommand: Hashable, Codable, Sendable {
     }
 }
 
+struct InstallVerificationCheck: Hashable, Codable, Sendable {
+    let name: String
+    let command: String
+    let timeoutSeconds: TimeInterval
+
+    init(_ name: String, command: String, timeoutSeconds: TimeInterval = 120) {
+        self.name = name
+        self.command = command
+        self.timeoutSeconds = timeoutSeconds
+    }
+}
+
 struct InstallItem: Identifiable, Hashable, Codable, Sendable {
     let id: String
     let name: String
@@ -52,7 +64,7 @@ struct InstallItem: Identifiable, Hashable, Codable, Sendable {
     let defaultSelected: Bool
     let dependencies: [String]
     let commands: [InstallCommand]
-    let verificationCommand: String
+    let verificationChecks: [InstallVerificationCheck]
     let remediationHints: [String]
 }
 
