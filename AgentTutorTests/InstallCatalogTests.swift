@@ -117,4 +117,23 @@ struct InstallCatalogTests {
         #expect(checkNames.contains("uv"))
         #expect(checkNames.contains("nvm"))
     }
+
+    @Test
+    func nodeLTSVerificationChecksCurrentNodeIsLTS() {
+        guard let nodeLTS = InstallCatalog.allItems.first(where: { $0.id == "node-lts" }) else {
+            Issue.record("node-lts item missing from catalog")
+            return
+        }
+
+        guard let check = nodeLTS.verificationChecks.first else {
+            Issue.record("node-lts verification check missing")
+            return
+        }
+
+        #expect(check.command.contains("node -e"))
+        #expect(check.command.contains("process.release"))
+        #expect(check.command.contains("process.release.lts"))
+        #expect(check.command.contains("nvm use --silent default"))
+        #expect(!check.command.contains("nvm which --lts"))
+    }
 }

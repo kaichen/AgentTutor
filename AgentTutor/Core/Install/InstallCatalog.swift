@@ -88,7 +88,7 @@ enum InstallCatalog {
             ],
             verificationChecks: singleVerificationCheck(
                 name: "node lts",
-                command: "export NVM_DIR=\"$HOME/.nvm\"; [ -s \"$(brew --prefix nvm)/nvm.sh\" ] && . \"$(brew --prefix nvm)/nvm.sh\"; nvm which --lts >/dev/null 2>&1"
+                command: "export NVM_DIR=\"$HOME/.nvm\"; [ -s \"$(brew --prefix nvm)/nvm.sh\" ] && . \"$(brew --prefix nvm)/nvm.sh\"; nvm use --silent default >/dev/null 2>&1 || exit 1; node -e 'if (!(process.release && process.release.lts)) process.exit(1)' >/dev/null 2>&1"
             ),
             remediationHints: [
                 "Verify that nvm was installed by Homebrew and retry.",
