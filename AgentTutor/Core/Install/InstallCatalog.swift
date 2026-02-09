@@ -53,22 +53,22 @@ enum InstallCatalog {
         InstallItem(
             id: "core-cli",
             name: "Core CLI Tools",
-            summary: "Installs ripgrep, fd, jq, yq, gh, uv, and nvm.",
+            summary: "Installs ripgrep, fd, jq, yq, gh, nvm, and uv.",
             category: .cli,
             isRequired: true,
             defaultSelected: true,
             dependencies: ["homebrew"],
             commands: [
-                InstallCommand("brew update && brew install ripgrep fd jq yq gh uv nvm", timeoutSeconds: 1800)
+                InstallCommand("brew update && brew install ripgrep fd jq yq gh nvm uv", timeoutSeconds: 1800)
             ],
             verificationChecks: [
-                InstallVerificationCheck("ripgrep (rg)", command: "command -v rg >/dev/null 2>&1"),
-                InstallVerificationCheck("fd", command: "command -v fd >/dev/null 2>&1"),
-                InstallVerificationCheck("jq", command: "command -v jq >/dev/null 2>&1"),
-                InstallVerificationCheck("yq", command: "command -v yq >/dev/null 2>&1"),
-                InstallVerificationCheck("gh", command: "command -v gh >/dev/null 2>&1"),
-                InstallVerificationCheck("uv", command: "command -v uv >/dev/null 2>&1"),
-                InstallVerificationCheck("nvm", command: "test -s \"$(brew --prefix nvm)/nvm.sh\"")
+                InstallVerificationCheck("ripgrep (rg)", command: "brew list ripgrep >/dev/null 2>&1 || command -v rg >/dev/null 2>&1"),
+                InstallVerificationCheck("fd", command: "brew list fd >/dev/null 2>&1 || command -v fd >/dev/null 2>&1"),
+                InstallVerificationCheck("jq", command: "brew list jq >/dev/null 2>&1 || command -v jq >/dev/null 2>&1"),
+                InstallVerificationCheck("yq", command: "brew list yq >/dev/null 2>&1 || command -v yq >/dev/null 2>&1"),
+                InstallVerificationCheck("gh", command: "brew list gh >/dev/null 2>&1 || command -v gh >/dev/null 2>&1"),
+                InstallVerificationCheck("nvm", command: "brew list nvm >/dev/null 2>&1"),
+                InstallVerificationCheck("uv", command: "brew list uv >/dev/null 2>&1 || command -v uv >/dev/null 2>&1")
             ],
             remediationHints: [
                 "Run brew doctor and resolve reported issues.",
@@ -77,42 +77,42 @@ enum InstallCatalog {
         ),
         InstallItem(
             id: "node-lts",
-            name: "Node.js LTS",
-            summary: "Installs latest Node LTS using nvm and sets it as default.",
-            category: .runtimes,
-            isRequired: false,
-            defaultSelected: true,
-            dependencies: ["core-cli"],
-            commands: [
-                InstallCommand("export NVM_DIR=\"$HOME/.nvm\"; mkdir -p \"$NVM_DIR\"; [ -s \"$(brew --prefix nvm)/nvm.sh\" ] && . \"$(brew --prefix nvm)/nvm.sh\"; nvm install --lts && nvm alias default 'lts/*'", timeoutSeconds: 1200)
-            ],
-            verificationChecks: singleVerificationCheck(
-                name: "node lts",
-                command: "export NVM_DIR=\"$HOME/.nvm\"; [ -s \"$(brew --prefix nvm)/nvm.sh\" ] && . \"$(brew --prefix nvm)/nvm.sh\"; nvm use --silent default >/dev/null 2>&1 || exit 1; node -e 'if (!(process.release && process.release.lts)) process.exit(1)' >/dev/null 2>&1"
-            ),
-            remediationHints: [
-                "Verify that nvm was installed by Homebrew and retry.",
-                "If shell initialization is customized heavily, run the command manually once in Terminal."
-            ]
-        ),
-        InstallItem(
-            id: "python3",
-            name: "Python 3",
-            summary: "Installs latest stable Python via Homebrew.",
+            name: "Node.js 22 LTS",
+            summary: "Installs Node.js 22 LTS via Homebrew and links it to PATH.",
             category: .runtimes,
             isRequired: false,
             defaultSelected: true,
             dependencies: ["homebrew"],
             commands: [
-                InstallCommand("brew install python", timeoutSeconds: 1200)
+                InstallCommand("brew install node@22 && brew link --overwrite --force node@22", timeoutSeconds: 1200)
             ],
-            verificationChecks: singleVerificationCheck(
-                name: "python3",
-                command: "python3 --version >/dev/null 2>&1"
-            ),
+            verificationChecks: [
+                InstallVerificationCheck("node@22 installed", command: "brew list node@22 >/dev/null 2>&1"),
+                InstallVerificationCheck("node in PATH", command: "node --version >/dev/null 2>&1")
+            ],
             remediationHints: [
-                "Ensure Homebrew is healthy (`brew doctor`) and retry.",
-                "If another Python manager conflicts, remove conflicting PATH overrides."
+                "Run `brew unlink node` if another Node version conflicts, then retry.",
+                "Ensure Homebrew is healthy (`brew doctor`) and retry."
+            ]
+        ),
+        InstallItem(
+            id: "python3",
+            name: "Python 3.10",
+            summary: "Installs Python 3.10 via Homebrew and links it to PATH.",
+            category: .runtimes,
+            isRequired: false,
+            defaultSelected: true,
+            dependencies: ["homebrew"],
+            commands: [
+                InstallCommand("brew install python@3.10 && brew link --overwrite --force python@3.10", timeoutSeconds: 1200)
+            ],
+            verificationChecks: [
+                InstallVerificationCheck("python@3.10 installed", command: "brew list python@3.10 >/dev/null 2>&1"),
+                InstallVerificationCheck("python3 in PATH", command: "python3 --version >/dev/null 2>&1")
+            ],
+            remediationHints: [
+                "Run `brew unlink python` if another Python version conflicts, then retry.",
+                "Ensure Homebrew is healthy (`brew doctor`) and retry."
             ]
         ),
         InstallItem(
@@ -146,10 +146,10 @@ enum InstallCatalog {
             commands: [
                 InstallCommand("brew install --cask codex", timeoutSeconds: 1200)
             ],
-            verificationChecks: singleVerificationCheck(
-                name: "codex",
-                command: "command -v codex >/dev/null 2>&1"
-            ),
+            verificationChecks: [
+                InstallVerificationCheck("codex installed", command: "brew list --cask codex >/dev/null 2>&1 || command -v codex >/dev/null 2>&1"),
+                InstallVerificationCheck("codex responds", command: "codex -m gpt-5.1-codex-mini --version >/dev/null 2>&1", timeoutSeconds: 15)
+            ],
             remediationHints: [
                 "Confirm your system can download from GitHub release endpoints.",
                 "If Gatekeeper blocks execution, allow the binary in Privacy & Security and retry."

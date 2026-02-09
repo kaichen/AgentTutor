@@ -114,26 +114,22 @@ struct InstallCatalogTests {
         #expect(checkNames.contains("jq"))
         #expect(checkNames.contains("yq"))
         #expect(checkNames.contains("gh"))
-        #expect(checkNames.contains("uv"))
         #expect(checkNames.contains("nvm"))
+        #expect(checkNames.contains("uv"))
     }
 
     @Test
-    func nodeLTSVerificationChecksCurrentNodeIsLTS() {
+    func nodeLTSVerificationChecksBrewAndPath() {
         guard let nodeLTS = InstallCatalog.allItems.first(where: { $0.id == "node-lts" }) else {
             Issue.record("node-lts item missing from catalog")
             return
         }
 
-        guard let check = nodeLTS.verificationChecks.first else {
-            Issue.record("node-lts verification check missing")
-            return
-        }
+        let checkNames = Set(nodeLTS.verificationChecks.map(\.name))
+        #expect(checkNames.contains("node@22 installed"))
+        #expect(checkNames.contains("node in PATH"))
 
-        #expect(check.command.contains("node -e"))
-        #expect(check.command.contains("process.release"))
-        #expect(check.command.contains("process.release.lts"))
-        #expect(check.command.contains("nvm use --silent default"))
-        #expect(!check.command.contains("nvm which --lts"))
+        let brewCheck = nodeLTS.verificationChecks.first { $0.name == "node@22 installed" }
+        #expect(brewCheck?.command.contains("brew list node@22") == true)
     }
 }
