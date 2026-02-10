@@ -65,11 +65,13 @@ struct CompletionView: View {
                 .opacity(showWhatsNext ? 1 : 0)
                 .offset(y: showWhatsNext ? 0 : 15)
 
-                Button("Open Log Folder") {
-                    viewModel.openLogFolder()
+                if viewModel.shouldShowCompletionLogFolderButton {
+                    Button("Open Log Folder") {
+                        viewModel.openLogFolder()
+                    }
+                    .buttonStyle(.bordered)
+                    .opacity(showButton ? 1 : 0)
                 }
-                .buttonStyle(.bordered)
-                .opacity(showButton ? 1 : 0)
 
                 Spacer()
             }
@@ -88,8 +90,12 @@ struct CompletionView: View {
             withAnimation(.spring(duration: 0.5, bounce: 0.15).delay(1.2)) {
                 showWhatsNext = true
             }
-            withAnimation(.spring(duration: 0.3, bounce: 0.1).delay(1.5)) {
-                showButton = true
+            if viewModel.shouldShowCompletionLogFolderButton {
+                withAnimation(.spring(duration: 0.3, bounce: 0.1).delay(1.5)) {
+                    showButton = true
+                }
+            } else {
+                showButton = false
             }
         }
     }

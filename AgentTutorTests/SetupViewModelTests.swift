@@ -108,6 +108,29 @@ struct SetupViewModelTests {
     }
 
     @Test
+    func completionLogFolderButtonIsHiddenWhenInstallCompletesWithoutIssues() {
+        let vm = makeVM()
+        let item = TestFixtures.makeItem(id: "ok", name: "OK", isRequired: true, defaultSelected: true)
+        vm.stepStates = [InstallStepState(item: item, status: .succeeded)]
+        vm.runState = .completed
+        vm.activeFailure = nil
+
+        #expect(vm.completedWithoutIssues)
+        #expect(!vm.shouldShowCompletionLogFolderButton)
+    }
+
+    @Test
+    func completionLogFolderButtonIsVisibleWhenInstallHasFailures() {
+        let vm = makeVM()
+        let item = TestFixtures.makeItem(id: "bad", name: "Bad", isRequired: true, defaultSelected: true)
+        vm.stepStates = [InstallStepState(item: item, status: .failed)]
+        vm.runState = .completed
+
+        #expect(!vm.completedWithoutIssues)
+        #expect(vm.shouldShowCompletionLogFolderButton)
+    }
+
+    @Test
     func providerDefaultsToOpenAIBaseURL() {
         let vm = makeVM()
         #expect(vm.apiProvider == .openai)
@@ -245,6 +268,46 @@ struct SetupViewModelTests {
         #expect(vm.runState == .completed)
         #expect(shell.invocations.count == 1)
         #expect(shell.invocations[0].command == item.verificationChecks[0].command)
+    }
+
+    @Test
+    func startInstallLogsAllCLICommandsIncludingSkippedCommands() async throws {
+        let checkCommand = "brew list pkg-a >/dev/null 2>&1"
+        let verificationCheck = InstallVerificationCheck(
+            "pkg-a",
+            command: checkCommand,
+            brewPackage: BrewPackageReference("pkg-a")
+        )
+        let item = TestFixtures.makeItem(
+            id: "pkg-a",
+            name: "Package A",
+            isRequired: true,
+            defaultSelected: true,
+            commands: [InstallCommand("echo install")],
+            verificationChecks: [verificationCheck]
+        )
+        let shell = MockShellExecutor(results: [
+            // brew list --formula
+            ShellExecutionResult(exitCode: 0, stdout: "pkg-a\n", stderr: "", timedOut: false),
+            // brew list --cask
+            ShellExecutionResult(exitCode: 0, stdout: "", stderr: "", timedOut: false),
+        ])
+        let vm = SetupViewModel(
+            catalog: [item],
+            shell: shell,
+            advisor: MockRemediationAdvisor(),
+            logger: InstallLogger()
+        )
+        vm.apiKey = "sk-test"
+        vm.startInstall()
+
+        try await Task.sleep(nanoseconds: 500_000_000)
+
+        #expect(vm.runState == .completed)
+        #expect(vm.liveLog.contains { $0.contains("$ command -v brew >/dev/null 2>&1 && brew list --formula") })
+        #expect(vm.liveLog.contains { $0.contains("$ command -v brew >/dev/null 2>&1 && brew list --cask") })
+        #expect(vm.liveLog.contains { $0.contains("$ \(checkCommand)  # skipped (cached brew list hit)") })
+        #expect(vm.liveLog.contains { $0.contains("$ echo install  # skipped (already installed)") })
     }
 
     @Test

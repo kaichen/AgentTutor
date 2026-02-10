@@ -110,6 +110,16 @@ final class SetupViewModel: ObservableObject {
         return "\(secs)s"
     }
 
+    var completedWithoutIssues: Bool {
+        runState == .completed &&
+        activeFailure == nil &&
+        stepStates.allSatisfy { $0.status == .succeeded }
+    }
+
+    var shouldShowCompletionLogFolderButton: Bool {
+        !completedWithoutIssues
+    }
+
     func moveNext() {
         guard let currentIndex = SetupStage.allCases.firstIndex(of: stage) else { return }
         let nextIndex = SetupStage.allCases.index(after: currentIndex)
@@ -247,7 +257,7 @@ final class SetupViewModel: ObservableObject {
                 timeoutSeconds: 900
             )
 
-            appendLog("Remediation command: \(command)")
+            appendLog("$ \(command)")
             appendLog(result.combinedOutput)
             await logger.log(level: result.exitCode == 0 ? .info : .error, message: "Remediation command finished", metadata: ["exit_code": String(result.exitCode)])
 
@@ -362,6 +372,7 @@ final class SetupViewModel: ObservableObject {
             if let brewPackage = check.brewPackage,
                let installed = await cachedBrewPackageInstalledStatus(for: brewPackage) {
                 if installed {
+                    appendLog("$ \(check.command)  # skipped (cached brew list hit)")
                     appendLog("Check passed: \(check.name) (cached brew list)")
                     continue
                 }
@@ -369,6 +380,7 @@ final class SetupViewModel: ObservableObject {
                 appendLog("Cached brew list miss for \(kindLabel) '\(brewPackage.name)'. Running explicit verification command.")
             }
 
+            appendLog("$ \(check.command)")
             let result = await shell.run(
                 command: check.command,
                 authMode: .standard,
@@ -405,18 +417,21 @@ final class SetupViewModel: ObservableObject {
 
         let preflightFailure = await runVerificationChecks(for: item, phase: "Check")
         if preflightFailure == nil {
+            for command in item.commands {
+                appendLog("$ \(command.shell)  # skipped (already installed)")
+            }
             appendLog("Already installed: \(item.name). Skipping install command.")
             return nil
         }
 
         for command in item.commands {
+            appendLog("$ \(command.shell)")
             let result = await shell.run(
                 command: command.shell,
                 authMode: command.authMode,
                 timeoutSeconds: command.timeoutSeconds
             )
 
-            appendLog("$ \(command.shell)")
             appendLog(result.combinedOutput)
 
             if result.exitCode != 0 {
@@ -517,13 +532,18 @@ final class SetupViewModel: ObservableObject {
         }
         brewPackageCacheLoaded = true
 
+        let formulaListCommand = "command -v brew >/dev/null 2>&1 && brew list --formula"
+        let caskListCommand = "command -v brew >/dev/null 2>&1 && brew list --cask"
+
+        appendLog("$ \(formulaListCommand)")
         let formulaResult = await shell.run(
-            command: "command -v brew >/dev/null 2>&1 && brew list --formula",
+            command: formulaListCommand,
             authMode: .standard,
             timeoutSeconds: 120
         )
+        appendLog("$ \(caskListCommand)")
         let caskResult = await shell.run(
-            command: "command -v brew >/dev/null 2>&1 && brew list --cask",
+            command: caskListCommand,
             authMode: .standard,
             timeoutSeconds: 120
         )

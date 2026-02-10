@@ -165,8 +165,12 @@ enum InstallCatalog {
             verificationChecks: [
                 InstallVerificationCheck(
                     "visual-studio-code cask",
-                    command: "brew list --cask visual-studio-code >/dev/null 2>&1 || [ -d '/Applications/Visual Studio Code.app' ] || [ -d \"$HOME/Applications/Visual Studio Code.app\" ]",
+                    command: "brew list --cask visual-studio-code >/dev/null 2>&1 || [ -d '/Applications/Visual Studio Code.app' ]",
                     brewPackage: BrewPackageReference("visual-studio-code", kind: .cask)
+                ),
+                InstallVerificationCheck(
+                    "visual-studio-code in /Applications",
+                    command: "[ -d '/Applications/Visual Studio Code.app' ]"
                 )
             ],
             remediationHints: [
@@ -177,25 +181,80 @@ enum InstallCatalog {
         InstallItem(
             id: "codex-cli",
             name: "Codex CLI",
-            summary: "Installs OpenAI Codex CLI via Homebrew Cask.",
-            category: .apps,
+            summary: "Installs Codex CLI via Homebrew formula.",
+            category: .cli,
             isRequired: false,
             defaultSelected: true,
             dependencies: ["homebrew"],
             commands: [
-                InstallCommand("brew install --cask codex", timeoutSeconds: 1200)
+                InstallCommand("brew install codex", timeoutSeconds: 1200)
             ],
             verificationChecks: [
                 InstallVerificationCheck(
-                    "codex cask",
-                    command: "brew list --cask codex >/dev/null 2>&1 || command -v codex >/dev/null 2>&1",
-                    brewPackage: BrewPackageReference("codex", kind: .cask)
+                    "codex formula",
+                    command: "brew list codex >/dev/null 2>&1 || command -v codex >/dev/null 2>&1",
+                    brewPackage: BrewPackageReference("codex")
                 ),
                 InstallVerificationCheck("codex responds", command: "codex -m gpt-5.1-codex-mini --version >/dev/null 2>&1", timeoutSeconds: 15)
             ],
             remediationHints: [
                 "Confirm your system can download from GitHub release endpoints.",
                 "If Gatekeeper blocks execution, allow the binary in Privacy & Security and retry."
+            ]
+        ),
+        InstallItem(
+            id: "claude-code-cli",
+            name: "Claude Code CLI",
+            summary: "Installs Claude Code CLI via Homebrew formula.",
+            category: .cli,
+            isRequired: false,
+            defaultSelected: true,
+            dependencies: ["homebrew"],
+            commands: [
+                InstallCommand("brew install claude-code", timeoutSeconds: 1200)
+            ],
+            verificationChecks: [
+                InstallVerificationCheck(
+                    "claude-code formula",
+                    command: "brew list claude-code >/dev/null 2>&1",
+                    brewPackage: BrewPackageReference("claude-code")
+                ),
+                InstallVerificationCheck(
+                    "claude responds",
+                    command: "claude --version >/dev/null 2>&1",
+                    timeoutSeconds: 15
+                )
+            ],
+            remediationHints: [
+                "Confirm your system can download from Homebrew and GitHub release endpoints.",
+                "If execution is blocked by macOS, allow the binary in Privacy & Security and retry."
+            ]
+        ),
+        InstallItem(
+            id: "codex-app",
+            name: "Codex App",
+            summary: "Installs Codex desktop app via Homebrew Cask.",
+            category: .apps,
+            isRequired: false,
+            defaultSelected: true,
+            dependencies: ["homebrew"],
+            commands: [
+                InstallCommand("brew install --cask codex-app", timeoutSeconds: 1200)
+            ],
+            verificationChecks: [
+                InstallVerificationCheck(
+                    "codex-app cask",
+                    command: "brew list --cask codex-app >/dev/null 2>&1 || [ -d '/Applications/Codex.app' ]",
+                    brewPackage: BrewPackageReference("codex-app", kind: .cask)
+                ),
+                InstallVerificationCheck(
+                    "codex-app in /Applications",
+                    command: "[ -d '/Applications/Codex.app' ]"
+                )
+            ],
+            remediationHints: [
+                "Close existing Codex App installers and retry.",
+                "Grant any macOS permission prompts if shown."
             ]
         ),
         InstallItem(

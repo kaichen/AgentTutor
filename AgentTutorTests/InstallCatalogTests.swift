@@ -88,25 +88,57 @@ struct InstallCatalogTests {
     }
 
     @Test
-    func caskVerificationChecksUseBrewPackageMetadata() {
+    func codexAndCaskVerificationChecksUseBrewPackageMetadata() {
         guard let vscode = InstallCatalog.allItems.first(where: { $0.id == "vscode" }) else {
             Issue.record("vscode item missing from catalog")
             return
         }
 
-        let command = vscode.verificationChecks[0].command
-        #expect(command.contains("brew list --cask visual-studio-code"))
-        #expect(command.contains("/Applications/Visual Studio Code.app"))
-        #expect(command.contains("$HOME/Applications/Visual Studio Code.app"))
-        #expect(vscode.verificationChecks[0].brewPackage?.name == "visual-studio-code")
-        #expect(vscode.verificationChecks[0].brewPackage?.kind == .cask)
+        let vscodeCaskCheck = vscode.verificationChecks.first { $0.name == "visual-studio-code cask" }
+        #expect(vscodeCaskCheck?.command.contains("brew list --cask visual-studio-code") == true)
+        #expect(vscodeCaskCheck?.command.contains("/Applications/Visual Studio Code.app") == true)
+        #expect(vscodeCaskCheck?.brewPackage?.name == "visual-studio-code")
+        #expect(vscodeCaskCheck?.brewPackage?.kind == .cask)
 
-        guard let codex = InstallCatalog.allItems.first(where: { $0.id == "codex-cli" }) else {
+        let vscodeApplicationsCheck = vscode.verificationChecks.first { $0.name == "visual-studio-code in /Applications" }
+        #expect(vscodeApplicationsCheck?.command == "[ -d '/Applications/Visual Studio Code.app' ]")
+        #expect(vscodeApplicationsCheck?.brewPackage == nil)
+
+        guard let codexCLI = InstallCatalog.allItems.first(where: { $0.id == "codex-cli" }) else {
             Issue.record("codex-cli item missing from catalog")
             return
         }
-        #expect(codex.verificationChecks[0].brewPackage?.name == "codex")
-        #expect(codex.verificationChecks[0].brewPackage?.kind == .cask)
+
+        let codexFormulaCheck = codexCLI.verificationChecks.first { $0.name == "codex formula" }
+        #expect(codexFormulaCheck?.brewPackage?.name == "codex")
+        #expect(codexFormulaCheck?.brewPackage?.kind == .formula)
+
+        guard let claudeCodeCLI = InstallCatalog.allItems.first(where: { $0.id == "claude-code-cli" }) else {
+            Issue.record("claude-code-cli item missing from catalog")
+            return
+        }
+
+        let claudeCodeFormulaCheck = claudeCodeCLI.verificationChecks.first { $0.name == "claude-code formula" }
+        #expect(claudeCodeFormulaCheck?.brewPackage?.name == "claude-code")
+        #expect(claudeCodeFormulaCheck?.brewPackage?.kind == .formula)
+
+        let claudeRespondsCheck = claudeCodeCLI.verificationChecks.first { $0.name == "claude responds" }
+        #expect(claudeRespondsCheck?.command == "claude --version >/dev/null 2>&1")
+
+        guard let codexApp = InstallCatalog.allItems.first(where: { $0.id == "codex-app" }) else {
+            Issue.record("codex-app item missing from catalog")
+            return
+        }
+
+        let codexAppCaskCheck = codexApp.verificationChecks.first { $0.name == "codex-app cask" }
+        #expect(codexAppCaskCheck?.command.contains("brew list --cask codex-app") == true)
+        #expect(codexAppCaskCheck?.command.contains("/Applications/Codex.app") == true)
+        #expect(codexAppCaskCheck?.brewPackage?.name == "codex-app")
+        #expect(codexAppCaskCheck?.brewPackage?.kind == .cask)
+
+        let codexAppApplicationsCheck = codexApp.verificationChecks.first { $0.name == "codex-app in /Applications" }
+        #expect(codexAppApplicationsCheck?.command == "[ -d '/Applications/Codex.app' ]")
+        #expect(codexAppApplicationsCheck?.brewPackage == nil)
     }
 
     @Test

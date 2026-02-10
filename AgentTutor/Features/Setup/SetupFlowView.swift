@@ -504,12 +504,14 @@ private struct InstallView: View {
                     .fontWeight(.semibold)
 
                 ScrollViewReader { proxy in
-                    ScrollView {
+                    ScrollView(.vertical) {
                         VStack(alignment: .leading, spacing: 0) {
-                            Text(viewModel.liveLog.joined(separator: "\n"))
+                            Text(verbatim: viewModel.liveLog.joined(separator: "\n"))
                                 .font(.system(size: 11, design: .monospaced))
                                 .foregroundStyle(.primary.opacity(0.85))
                                 .textSelection(.enabled)
+                                .lineSpacing(2)
+                                .multilineTextAlignment(.leading)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                             Color.clear
                                 .frame(height: 1)
@@ -552,6 +554,8 @@ private struct InstallView: View {
         case "python3": "curlybraces"
         case "vscode": "chevron.left.forwardslash.chevron.right"
         case "codex-cli": "sparkles"
+        case "claude-code-cli": "message.badge.waveform"
+        case "codex-app": "app.badge.sparkles"
         case "gh-auth": "person.badge.key"
         default: "app"
         }
