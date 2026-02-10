@@ -79,6 +79,12 @@ enum InstallCategory: String, CaseIterable, Codable, Sendable {
     case auth = "Authentication"
 }
 
+enum CommandAuthMode: String, Codable, Sendable {
+    case standard
+    case adminAppleScript
+    case sudoAskpass
+}
+
 enum BrewPackageKind: String, Codable, Sendable {
     case formula
     case cask
@@ -96,12 +102,12 @@ struct BrewPackageReference: Hashable, Codable, Sendable {
 
 struct InstallCommand: Hashable, Codable, Sendable {
     let shell: String
-    let requiresAdmin: Bool
+    let authMode: CommandAuthMode
     let timeoutSeconds: TimeInterval
 
-    init(_ shell: String, requiresAdmin: Bool = false, timeoutSeconds: TimeInterval = 900) {
+    init(_ shell: String, authMode: CommandAuthMode = .standard, timeoutSeconds: TimeInterval = 900) {
         self.shell = shell
-        self.requiresAdmin = requiresAdmin
+        self.authMode = authMode
         self.timeoutSeconds = timeoutSeconds
     }
 }

@@ -6,7 +6,7 @@ import Foundation
 final class MockShellExecutor: ShellExecuting, @unchecked Sendable {
     struct Invocation: Sendable {
         let command: String
-        let requiresAdmin: Bool
+        let authMode: CommandAuthMode
         let timeoutSeconds: TimeInterval
     }
 
@@ -26,9 +26,9 @@ final class MockShellExecutor: ShellExecuting, @unchecked Sendable {
             : results
     }
 
-    func run(command: String, requiresAdmin: Bool, timeoutSeconds: TimeInterval) async -> ShellExecutionResult {
+    func run(command: String, authMode: CommandAuthMode, timeoutSeconds: TimeInterval) async -> ShellExecutionResult {
         lock.withLock {
-            _invocations.append(Invocation(command: command, requiresAdmin: requiresAdmin, timeoutSeconds: timeoutSeconds))
+            _invocations.append(Invocation(command: command, authMode: authMode, timeoutSeconds: timeoutSeconds))
             let result = _results[min(_resultIndex, _results.count - 1)]
             _resultIndex += 1
             return result

@@ -229,7 +229,7 @@ final class GitSSHService: GitSSHServicing {
     }
 
     private func run(command: String, timeoutSeconds: TimeInterval) async -> ShellExecutionResult {
-        await shell.run(command: command, requiresAdmin: false, timeoutSeconds: timeoutSeconds)
+        await shell.run(command: command, authMode: .standard, timeoutSeconds: timeoutSeconds)
     }
 
     private func commandFailure(action: String, command: String, result: ShellExecutionResult) -> GitSSHServiceError {

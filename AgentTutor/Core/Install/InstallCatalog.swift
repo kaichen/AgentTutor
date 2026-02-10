@@ -35,7 +35,11 @@ enum InstallCatalog {
             defaultSelected: true,
             dependencies: ["xcode-cli-tools"],
             commands: [
-                InstallCommand("command -v brew >/dev/null 2>&1 || NONINTERACTIVE=1 /bin/bash -c \"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\"", timeoutSeconds: 1800)
+                InstallCommand(
+                    "command -v brew >/dev/null 2>&1 || NONINTERACTIVE=1 /bin/bash -c \"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\"",
+                    authMode: .sudoAskpass,
+                    timeoutSeconds: 1800
+                )
             ],
             verificationChecks: singleVerificationCheck(
                 name: "homebrew",

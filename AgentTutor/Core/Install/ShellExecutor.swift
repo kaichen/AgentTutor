@@ -36,21 +36,22 @@ struct ShellExecutionResult: Sendable {
 }
 
 protocol ShellExecuting: Sendable {
-    func run(command: String, requiresAdmin: Bool, timeoutSeconds: TimeInterval) async -> ShellExecutionResult
+    func run(command: String, authMode: CommandAuthMode, timeoutSeconds: TimeInterval) async -> ShellExecutionResult
 }
 
 final class ShellExecutor: ShellExecuting {
     private let pathPrefix = "export PATH=\"/opt/homebrew/bin:/usr/local/bin:$PATH\"; "
+    private let askpassHelperName = "AgentTutorAskpass"
 
-    func run(command: String, requiresAdmin: Bool, timeoutSeconds: TimeInterval) async -> ShellExecutionResult {
+    func run(command: String, authMode: CommandAuthMode, timeoutSeconds: TimeInterval) async -> ShellExecutionResult {
         await withCheckedContinuation { continuation in
             DispatchQueue.global(qos: .userInitiated).async {
-                continuation.resume(returning: self.runSync(command: command, requiresAdmin: requiresAdmin, timeoutSeconds: timeoutSeconds))
+                continuation.resume(returning: self.runSync(command: command, authMode: authMode, timeoutSeconds: timeoutSeconds))
             }
         }
     }
 
-    private func runSync(command: String, requiresAdmin: Bool, timeoutSeconds: TimeInterval) -> ShellExecutionResult {
+    private func runSync(command: String, authMode: CommandAuthMode, timeoutSeconds: TimeInterval) -> ShellExecutionResult {
         let process = Process()
         let stdoutPipe = Pipe()
         let stderrPipe = Pipe()
@@ -58,10 +59,23 @@ final class ShellExecutor: ShellExecuting {
         process.standardOutput = stdoutPipe
         process.standardError = stderrPipe
 
-        if requiresAdmin {
+        switch authMode {
+        case .adminAppleScript:
             process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
             process.arguments = ["-e", appleScript(for: pathPrefix + command)]
-        } else {
+        case .sudoAskpass:
+            guard let helperPath = askpassHelperPath() else {
+                return ShellExecutionResult(
+                    exitCode: -1,
+                    stdout: "",
+                    stderr: "SUDO_ASKPASS helper missing or not executable. Expected at Contents/Helpers/\(askpassHelperName).",
+                    timedOut: false
+                )
+            }
+            process.executableURL = URL(fileURLWithPath: "/bin/zsh")
+            process.arguments = ["-lc", pathPrefix + normalizedCommand(command, authMode: authMode)]
+            process.environment = environment(additions: ["SUDO_ASKPASS": helperPath])
+        case .standard:
             process.executableURL = URL(fileURLWithPath: "/bin/zsh")
             process.arguments = ["-lc", pathPrefix + command]
         }
@@ -107,5 +121,38 @@ final class ShellExecutor: ShellExecuting {
             .replacingOccurrences(of: "\"", with: "\\\"")
 
         return "do shell script \"\(escaped)\" with administrator privileges"
+    }
+
+    private func askpassHelperPath() -> String? {
+        let helperURL = Bundle.main.bundleURL
+            .appendingPathComponent("Contents", isDirectory: true)
+            .appendingPathComponent("Helpers", isDirectory: true)
+            .appendingPathComponent(askpassHelperName, isDirectory: false)
+
+        let helperPath = helperURL.path
+        guard FileManager.default.fileExists(atPath: helperPath),
+              FileManager.default.isExecutableFile(atPath: helperPath) else {
+            return nil
+        }
+        return helperPath
+    }
+
+    private func environment(additions: [String: String]) -> [String: String] {
+        var merged = ProcessInfo.processInfo.environment
+        for (key, value) in additions {
+            merged[key] = value
+        }
+        return merged
+    }
+
+    private func normalizedCommand(_ command: String, authMode: CommandAuthMode) -> String {
+        guard authMode == .sudoAskpass else {
+            return command
+        }
+        if command.hasPrefix("sudo ") {
+            let remainder = command.dropFirst("sudo ".count)
+            return "sudo -A \(remainder)"
+        }
+        return command
     }
 }

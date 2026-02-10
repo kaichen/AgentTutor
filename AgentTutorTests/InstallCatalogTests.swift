@@ -158,4 +158,15 @@ struct InstallCatalogTests {
         #expect(ghAuth.commands[0].shell.contains(GitHubAuthPolicy.loginCommand))
         #expect(ghAuth.verificationChecks.first?.command == GitHubAuthPolicy.statusCommand)
     }
+
+    @Test
+    func homebrewInstallUsesSudoAskpassAuthMode() {
+        guard let homebrew = InstallCatalog.allItems.first(where: { $0.id == "homebrew" }) else {
+            Issue.record("homebrew item missing from catalog")
+            return
+        }
+
+        #expect(homebrew.commands.count == 1)
+        #expect(homebrew.commands[0].authMode == .sudoAskpass)
+    }
 }

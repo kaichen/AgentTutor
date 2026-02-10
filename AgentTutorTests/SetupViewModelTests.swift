@@ -388,6 +388,76 @@ struct SetupViewModelTests {
     }
 
     @Test
+    func startInstallUsesSudoAskpassForConfiguredInstallCommand() async throws {
+        let item = TestFixtures.makeItem(
+            id: "homebrew",
+            name: "Homebrew",
+            category: .system,
+            isRequired: true,
+            defaultSelected: true,
+            commands: [
+                InstallCommand("NONINTERACTIVE=1 /bin/bash -c \"echo install\"", authMode: .sudoAskpass)
+            ],
+            verificationChecks: [
+                InstallVerificationCheck("homebrew", command: "command -v brew >/dev/null 2>&1")
+            ]
+        )
+        let shell = MockShellExecutor(results: [
+            ShellExecutionResult(exitCode: 1, stdout: "", stderr: "missing", timedOut: false),
+            ShellExecutionResult(exitCode: 0, stdout: "", stderr: "", timedOut: false),
+            ShellExecutionResult(exitCode: 0, stdout: "", stderr: "", timedOut: false),
+        ])
+        let vm = SetupViewModel(
+            catalog: [item],
+            shell: shell,
+            advisor: MockRemediationAdvisor(),
+            logger: InstallLogger()
+        )
+        vm.apiKey = "sk-test"
+        vm.startInstall()
+
+        try await Task.sleep(nanoseconds: 500_000_000)
+
+        #expect(vm.runState == .completed)
+        #expect(shell.invocations.count == 3)
+        #expect(shell.invocations[1].authMode == .sudoAskpass)
+    }
+
+    @Test
+    func startInstallShowsAuthFailureNoticeWhenAuthenticationFails() async throws {
+        let item = TestFixtures.makeItem(
+            id: "homebrew",
+            name: "Homebrew",
+            category: .system,
+            isRequired: true,
+            defaultSelected: true,
+            commands: [
+                InstallCommand("NONINTERACTIVE=1 /bin/bash -c \"echo install\"", authMode: .sudoAskpass)
+            ],
+            verificationChecks: [
+                InstallVerificationCheck("homebrew", command: "command -v brew >/dev/null 2>&1")
+            ]
+        )
+        let shell = MockShellExecutor(results: [
+            ShellExecutionResult(exitCode: 1, stdout: "", stderr: "missing", timedOut: false),
+            ShellExecutionResult(exitCode: 1, stdout: "", stderr: "sudo: a password is required", timedOut: false),
+        ])
+        let vm = SetupViewModel(
+            catalog: [item],
+            shell: shell,
+            advisor: MockRemediationAdvisor(),
+            logger: InstallLogger()
+        )
+        vm.apiKey = "sk-test"
+        vm.startInstall()
+
+        try await Task.sleep(nanoseconds: 500_000_000)
+
+        #expect(vm.runState == .failed)
+        #expect(vm.userNotice.contains("Administrator authentication was canceled or failed"))
+    }
+
+    @Test
     func startInstallFailsOnCommandError() async throws {
         let item = TestFixtures.makeItem(id: "b", name: "B", isRequired: true, defaultSelected: true)
         let shell = MockShellExecutor(results: [
@@ -771,8 +841,30 @@ struct SetupViewModelTests {
 
         #expect(shell.invocations.count == 1)
         #expect(shell.invocations[0].command == "brew doctor")
+        #expect(shell.invocations[0].authMode == .standard)
         #expect(vm.userNotice.contains("succeeded"))
         #expect(!vm.isRunningRemediationCommand)
+    }
+
+    @Test
+    func executePendingRemediationUsesSudoAskpassForSudoCommand() async throws {
+        let shell = MockShellExecutor(results: [
+            ShellExecutionResult(exitCode: 0, stdout: "ok", stderr: "", timedOut: false),
+        ])
+        let vm = SetupViewModel(
+            catalog: [],
+            shell: shell,
+            advisor: MockRemediationAdvisor(),
+            logger: InstallLogger()
+        )
+        vm.pendingRemediationCommand = "sudo brew doctor"
+        vm.executePendingRemediationCommand()
+
+        try await Task.sleep(nanoseconds: 500_000_000)
+
+        #expect(shell.invocations.count == 1)
+        #expect(shell.invocations[0].command == "sudo brew doctor")
+        #expect(shell.invocations[0].authMode == .sudoAskpass)
     }
 
     @Test
@@ -792,6 +884,25 @@ struct SetupViewModelTests {
         try await Task.sleep(nanoseconds: 500_000_000)
 
         #expect(vm.userNotice.contains("failed"))
+    }
+
+    @Test
+    func executePendingRemediationShowsAuthFailureNotice() async throws {
+        let shell = MockShellExecutor(results: [
+            ShellExecutionResult(exitCode: 1, stdout: "", stderr: "sudo: no password was provided", timedOut: false),
+        ])
+        let vm = SetupViewModel(
+            catalog: [],
+            shell: shell,
+            advisor: MockRemediationAdvisor(),
+            logger: InstallLogger()
+        )
+        vm.pendingRemediationCommand = "sudo brew doctor"
+        vm.executePendingRemediationCommand()
+
+        try await Task.sleep(nanoseconds: 500_000_000)
+
+        #expect(vm.userNotice.contains("Administrator authentication was canceled or failed"))
     }
 
     @Test

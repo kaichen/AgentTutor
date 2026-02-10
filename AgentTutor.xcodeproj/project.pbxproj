@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		D1A5A0032F40000100AB6E83 /* AgentTutorAskpass in Embed Helpers */ = {isa = PBXBuildFile; fileRef = D1A5A0022F40000100AB6E83 /* AgentTutorAskpass */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		102B089A2F38F9A900AB6E83 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -21,12 +25,20 @@
 			remoteGlobalIDString = 102B088B2F38F9A800AB6E83;
 			remoteInfo = AgentTutor;
 		};
+		D1A5A0012F40000100AB6E83 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 102B08842F38F9A800AB6E83 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D1A5A0092F40000100AB6E83;
+			remoteInfo = AgentTutorAskpass;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		102B088C2F38F9A800AB6E83 /* AgentTutor.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AgentTutor.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		102B08992F38F9A900AB6E83 /* AgentTutorTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AgentTutorTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		102B08A32F38F9A900AB6E83 /* AgentTutorUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AgentTutorUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		D1A5A0022F40000100AB6E83 /* AgentTutorAskpass */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = AgentTutorAskpass; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -71,7 +83,26 @@
 			path = AgentTutorUITests;
 			sourceTree = "<group>";
 		};
+		D1A5A0042F40000100AB6E83 /* AgentTutorAskpass */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = AgentTutorAskpass;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		D1A5A0052F40000100AB6E83 /* Embed Helpers */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = Contents/Helpers;
+			dstSubfolderSpec = 1;
+			files = (
+				D1A5A0032F40000100AB6E83 /* AgentTutorAskpass in Embed Helpers */,
+			);
+			name = "Embed Helpers";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		102B08892F38F9A800AB6E83 /* Frameworks */ = {
@@ -95,6 +126,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		D1A5A0062F40000100AB6E83 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -104,6 +142,7 @@
 				102B088E2F38F9A800AB6E83 /* AgentTutor */,
 				102B089C2F38F9A900AB6E83 /* AgentTutorTests */,
 				102B08A62F38F9A900AB6E83 /* AgentTutorUITests */,
+				D1A5A0042F40000100AB6E83 /* AgentTutorAskpass */,
 				102B088D2F38F9A800AB6E83 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -114,6 +153,7 @@
 				102B088C2F38F9A800AB6E83 /* AgentTutor.app */,
 				102B08992F38F9A900AB6E83 /* AgentTutorTests.xctest */,
 				102B08A32F38F9A900AB6E83 /* AgentTutorUITests.xctest */,
+				D1A5A0022F40000100AB6E83 /* AgentTutorAskpass */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -127,11 +167,13 @@
 			buildPhases = (
 				102B08882F38F9A800AB6E83 /* Sources */,
 				102B08892F38F9A800AB6E83 /* Frameworks */,
+				D1A5A0052F40000100AB6E83 /* Embed Helpers */,
 				102B088A2F38F9A800AB6E83 /* Resources */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				D1A5A00A2F40000100AB6E83 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				102B088E2F38F9A800AB6E83 /* AgentTutor */,
@@ -189,6 +231,28 @@
 			productReference = 102B08A32F38F9A900AB6E83 /* AgentTutorUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
+		D1A5A0092F40000100AB6E83 /* AgentTutorAskpass */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D1A5A00D2F40000100AB6E83 /* Build configuration list for PBXNativeTarget "AgentTutorAskpass" */;
+			buildPhases = (
+				D1A5A0082F40000100AB6E83 /* Sources */,
+				D1A5A0062F40000100AB6E83 /* Frameworks */,
+				D1A5A0072F40000100AB6E83 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				D1A5A0042F40000100AB6E83 /* AgentTutorAskpass */,
+			);
+			name = AgentTutorAskpass;
+			packageProductDependencies = (
+			);
+			productName = AgentTutorAskpass;
+			productReference = D1A5A0022F40000100AB6E83 /* AgentTutorAskpass */;
+			productType = "com.apple.product-type.tool";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -210,6 +274,9 @@
 						CreatedOnToolsVersion = 26.2;
 						TestTargetID = 102B088B2F38F9A800AB6E83;
 					};
+					D1A5A0092F40000100AB6E83 = {
+						CreatedOnToolsVersion = 26.2;
+					};
 				};
 			};
 			buildConfigurationList = 102B08872F38F9A800AB6E83 /* Build configuration list for PBXProject "AgentTutor" */;
@@ -229,6 +296,7 @@
 				102B088B2F38F9A800AB6E83 /* AgentTutor */,
 				102B08982F38F9A900AB6E83 /* AgentTutorTests */,
 				102B08A22F38F9A900AB6E83 /* AgentTutorUITests */,
+				D1A5A0092F40000100AB6E83 /* AgentTutorAskpass */,
 			);
 		};
 /* End PBXProject section */
@@ -249,6 +317,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		102B08A12F38F9A900AB6E83 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D1A5A0072F40000100AB6E83 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -279,6 +354,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		D1A5A0082F40000100AB6E83 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -291,6 +373,11 @@
 			isa = PBXTargetDependency;
 			target = 102B088B2F38F9A800AB6E83 /* AgentTutor */;
 			targetProxy = 102B08A42F38F9A900AB6E83 /* PBXContainerItemProxy */;
+		};
+		D1A5A00A2F40000100AB6E83 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D1A5A0092F40000100AB6E83 /* AgentTutorAskpass */;
+			targetProxy = D1A5A0012F40000100AB6E83 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -559,6 +646,44 @@
 			};
 			name = Release;
 		};
+		D1A5A00B2F40000100AB6E83 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 2;
+				DEVELOPMENT_TEAM = 5EE3MRCZ7T;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.thekaiway.AgentTutorAskpass;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		D1A5A00C2F40000100AB6E83 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 2;
+				DEVELOPMENT_TEAM = 5EE3MRCZ7T;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.thekaiway.AgentTutorAskpass;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -594,6 +719,15 @@
 			buildConfigurations = (
 				102B08B42F38F9A900AB6E83 /* Debug */,
 				102B08B52F38F9A900AB6E83 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D1A5A00D2F40000100AB6E83 /* Build configuration list for PBXNativeTarget "AgentTutorAskpass" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D1A5A00B2F40000100AB6E83 /* Debug */,
+				D1A5A00C2F40000100AB6E83 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

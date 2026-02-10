@@ -182,6 +182,9 @@ final class SetupViewModel: ObservableObject {
                         installEndTime = Date()
                         activeFailure = failure
                         appendLog("Failed: \(item.name)")
+                        if let authFailureMessage = adminAuthenticationFailureMessage(from: failure.output) {
+                            userNotice = authFailureMessage
+                        }
                         await logger.log(level: .error, message: "Step failed", metadata: [
                             "item": item.id,
                             "command": failure.failedCommand,
@@ -231,6 +234,7 @@ final class SetupViewModel: ObservableObject {
             userNotice = "Blocked an unsafe command. Please review manually."
             return
         }
+        let authMode: CommandAuthMode = command.hasPrefix("sudo ") ? .sudoAskpass : .standard
 
         isRunningRemediationCommand = true
         showingCommandConfirmation = false
@@ -239,7 +243,7 @@ final class SetupViewModel: ObservableObject {
             await logger.log(level: .warning, message: "Running user-approved remediation command", metadata: ["command": command])
             let result = await shell.run(
                 command: command,
-                requiresAdmin: command.hasPrefix("sudo "),
+                authMode: authMode,
                 timeoutSeconds: 900
             )
 
@@ -249,6 +253,8 @@ final class SetupViewModel: ObservableObject {
 
             if result.exitCode == 0 {
                 userNotice = "Remediation command succeeded. You can retry installation now."
+            } else if let authFailureMessage = adminAuthenticationFailureMessage(from: result.combinedOutput) {
+                userNotice = authFailureMessage
             } else {
                 userNotice = "Remediation command failed. Check logs before retrying."
             }
@@ -365,7 +371,7 @@ final class SetupViewModel: ObservableObject {
 
             let result = await shell.run(
                 command: check.command,
-                requiresAdmin: false,
+                authMode: .standard,
                 timeoutSeconds: check.timeoutSeconds
             )
 
@@ -406,7 +412,7 @@ final class SetupViewModel: ObservableObject {
         for command in item.commands {
             let result = await shell.run(
                 command: command.shell,
-                requiresAdmin: command.requiresAdmin,
+                authMode: command.authMode,
                 timeoutSeconds: command.timeoutSeconds
             )
 
@@ -513,12 +519,12 @@ final class SetupViewModel: ObservableObject {
 
         let formulaResult = await shell.run(
             command: "command -v brew >/dev/null 2>&1 && brew list --formula",
-            requiresAdmin: false,
+            authMode: .standard,
             timeoutSeconds: 120
         )
         let caskResult = await shell.run(
             command: "command -v brew >/dev/null 2>&1 && brew list --cask",
-            requiresAdmin: false,
+            authMode: .standard,
             timeoutSeconds: 120
         )
 
@@ -539,6 +545,19 @@ final class SetupViewModel: ObservableObject {
         brewPackageCache = cache
         appendLog("Loaded brew cache: \(cache.formulas.count) formulae, \(cache.casks.count) casks.")
         return cache
+    }
+
+    private func adminAuthenticationFailureMessage(from output: String) -> String? {
+        let normalized = output.lowercased()
+        let indicators = [
+            "no password was provided",
+            "a password is required",
+            "authentication failed",
+        ]
+        guard indicators.contains(where: { normalized.contains($0) }) else {
+            return nil
+        }
+        return "Administrator authentication was canceled or failed. Retry and complete password authentication."
     }
 
     private func parseBrewPackageNames(from output: String) -> Set<String> {
