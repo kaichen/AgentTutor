@@ -161,7 +161,7 @@ enum InstallCatalog {
             verificationChecks: [
                 InstallVerificationCheck(
                     "visual-studio-code cask",
-                    command: "brew list --cask visual-studio-code >/dev/null 2>&1",
+                    command: "brew list --cask visual-studio-code >/dev/null 2>&1 || [ -d '/Applications/Visual Studio Code.app' ] || [ -d \"$HOME/Applications/Visual Studio Code.app\" ]",
                     brewPackage: BrewPackageReference("visual-studio-code", kind: .cask)
                 )
             ],

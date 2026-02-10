@@ -359,22 +359,8 @@ final class SetupViewModel: ObservableObject {
                     appendLog("Check passed: \(check.name) (cached brew list)")
                     continue
                 }
-
                 let kindLabel = brewPackage.kind == .formula ? "formula" : "cask"
-                let result = ShellExecutionResult(
-                    exitCode: 1,
-                    stdout: "",
-                    stderr: "\(kindLabel) '\(brewPackage.name)' not found in cached brew list.",
-                    timedOut: false
-                )
-
-                appendLog(result.combinedOutput)
-                appendLog("Check failed: \(check.name)")
-
-                if firstFailure == nil {
-                    firstFailure = VerificationFailureDetail(check: check, result: result)
-                }
-                continue
+                appendLog("Cached brew list miss for \(kindLabel) '\(brewPackage.name)'. Running explicit verification command.")
             }
 
             let result = await shell.run(

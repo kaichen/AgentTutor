@@ -348,6 +348,46 @@ struct SetupViewModelTests {
     }
 
     @Test
+    func startInstallRunsExplicitCommandWhenBrewCacheMissesPackage() async throws {
+        let vscodeCheck = InstallVerificationCheck(
+            "visual-studio-code cask",
+            command: "brew list --cask visual-studio-code >/dev/null 2>&1 || [ -d '/Applications/Visual Studio Code.app' ]",
+            brewPackage: BrewPackageReference("visual-studio-code", kind: .cask)
+        )
+        let item = TestFixtures.makeItem(
+            id: "vscode",
+            name: "Visual Studio Code",
+            category: .apps,
+            isRequired: true,
+            defaultSelected: true,
+            verificationChecks: [vscodeCheck]
+        )
+
+        let shell = MockShellExecutor(results: [
+            ShellExecutionResult(exitCode: 0, stdout: "", stderr: "", timedOut: false),
+            ShellExecutionResult(exitCode: 0, stdout: "", stderr: "", timedOut: false),
+            ShellExecutionResult(exitCode: 0, stdout: "", stderr: "", timedOut: false),
+        ])
+        let vm = SetupViewModel(
+            catalog: [item],
+            shell: shell,
+            advisor: MockRemediationAdvisor(),
+            logger: InstallLogger()
+        )
+        vm.apiKey = "sk-test"
+        vm.startInstall()
+
+        try await Task.sleep(nanoseconds: 500_000_000)
+
+        #expect(vm.runState == .completed)
+        #expect(shell.invocations.count == 3)
+        #expect(shell.invocations[0].command.contains("brew list --formula"))
+        #expect(shell.invocations[1].command.contains("brew list --cask"))
+        #expect(shell.invocations[2].command == vscodeCheck.command)
+        #expect(!shell.invocations.contains(where: { $0.command == "echo install" }))
+    }
+
+    @Test
     func startInstallFailsOnCommandError() async throws {
         let item = TestFixtures.makeItem(id: "b", name: "B", isRequired: true, defaultSelected: true)
         let shell = MockShellExecutor(results: [

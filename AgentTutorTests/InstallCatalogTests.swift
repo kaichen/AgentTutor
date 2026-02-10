@@ -96,6 +96,8 @@ struct InstallCatalogTests {
 
         let command = vscode.verificationChecks[0].command
         #expect(command.contains("brew list --cask visual-studio-code"))
+        #expect(command.contains("/Applications/Visual Studio Code.app"))
+        #expect(command.contains("$HOME/Applications/Visual Studio Code.app"))
         #expect(vscode.verificationChecks[0].brewPackage?.name == "visual-studio-code")
         #expect(vscode.verificationChecks[0].brewPackage?.kind == .cask)
 
