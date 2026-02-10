@@ -62,6 +62,89 @@ final class MockRemediationAdvisor: RemediationAdvising, @unchecked Sendable {
     }
 }
 
+// MARK: - Mock GitSSHServicing
+
+final class MockGitSSHService: GitSSHServicing, @unchecked Sendable {
+    private let lock = NSLock()
+
+    var privateKeyPath: String
+    var publicKeyPath: String
+    var readGlobalGitIdentityResult: Result<GitIdentity, GitSSHServiceError>
+    var writeGlobalGitIdentityResult: Result<GitIdentity, GitSSHServiceError>
+    var loadExistingSSHKeyMaterialResult: Result<SSHKeyMaterial?, GitSSHServiceError>
+    var generateSSHKeyResult: Result<SSHKeyMaterial, GitSSHServiceError>
+    var uploadPublicKeyResult: Result<GitHubKeyUploadOutcome, GitSSHServiceError>
+    var defaultKeyTitle = "AgentTutor-test-key"
+
+    private(set) var writeRequests: [GitIdentity] = []
+    private(set) var loadSSHKeyCallCount = 0
+    private(set) var generateCallComments: [String] = []
+    private(set) var uploadRequests: [(publicKeyPath: String, title: String)] = []
+
+    init(
+        privateKeyPath: String = "/tmp/mock/id_ed25519",
+        publicKeyPath: String = "/tmp/mock/id_ed25519.pub",
+        readGlobalGitIdentityResult: Result<GitIdentity, GitSSHServiceError> = .success(GitIdentity(name: "", email: "")),
+        writeGlobalGitIdentityResult: Result<GitIdentity, GitSSHServiceError> = .success(GitIdentity(name: "Test User", email: "test@example.com")),
+        loadExistingSSHKeyMaterialResult: Result<SSHKeyMaterial?, GitSSHServiceError> = .success(nil),
+        generateSSHKeyResult: Result<SSHKeyMaterial, GitSSHServiceError> = .success(
+            SSHKeyMaterial(
+                privateKeyPath: "/tmp/mock/id_ed25519",
+                publicKeyPath: "/tmp/mock/id_ed25519.pub",
+                publicKey: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAITestKey test@example.com",
+                fingerprint: "256 SHA256:mockfingerprint test@example.com (ED25519)"
+            )
+        ),
+        uploadPublicKeyResult: Result<GitHubKeyUploadOutcome, GitSSHServiceError> = .success(.uploaded)
+    ) {
+        self.privateKeyPath = privateKeyPath
+        self.publicKeyPath = publicKeyPath
+        self.readGlobalGitIdentityResult = readGlobalGitIdentityResult
+        self.writeGlobalGitIdentityResult = writeGlobalGitIdentityResult
+        self.loadExistingSSHKeyMaterialResult = loadExistingSSHKeyMaterialResult
+        self.generateSSHKeyResult = generateSSHKeyResult
+        self.uploadPublicKeyResult = uploadPublicKeyResult
+    }
+
+    func readGlobalGitIdentity() async -> Result<GitIdentity, GitSSHServiceError> {
+        lock.withLock {
+            readGlobalGitIdentityResult
+        }
+    }
+
+    func writeGlobalGitIdentity(_ identity: GitIdentity) async -> Result<GitIdentity, GitSSHServiceError> {
+        lock.withLock {
+            writeRequests.append(identity)
+            return writeGlobalGitIdentityResult
+        }
+    }
+
+    func loadExistingSSHKeyMaterial() async -> Result<SSHKeyMaterial?, GitSSHServiceError> {
+        lock.withLock {
+            loadSSHKeyCallCount += 1
+            return loadExistingSSHKeyMaterialResult
+        }
+    }
+
+    func generateSSHKey(comment: String) async -> Result<SSHKeyMaterial, GitSSHServiceError> {
+        lock.withLock {
+            generateCallComments.append(comment)
+            return generateSSHKeyResult
+        }
+    }
+
+    func uploadPublicKeyToGitHub(publicKeyPath: String, title: String) async -> Result<GitHubKeyUploadOutcome, GitSSHServiceError> {
+        lock.withLock {
+            uploadRequests.append((publicKeyPath: publicKeyPath, title: title))
+            return uploadPublicKeyResult
+        }
+    }
+
+    func defaultGitHubKeyTitle() -> String {
+        defaultKeyTitle
+    }
+}
+
 // MARK: - Test Fixtures
 
 enum TestFixtures {

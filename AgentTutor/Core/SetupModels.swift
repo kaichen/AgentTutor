@@ -5,6 +5,7 @@ enum SetupStage: Int, CaseIterable {
     case apiKey
     case selection
     case install
+    case gitSSH
     case completion
 
     var title: String {
@@ -17,6 +18,8 @@ enum SetupStage: Int, CaseIterable {
             return "Choose Components"
         case .install:
             return "Install"
+        case .gitSSH:
+            return "Git & SSH"
         case .completion:
             return "Complete"
         }
@@ -191,4 +194,31 @@ enum APIKeyValidationStatus: Equatable, Sendable {
     case validating
     case valid
     case invalid(String)
+}
+
+struct GitIdentity: Equatable, Sendable {
+    var name: String
+    var email: String
+}
+
+enum ActionStatus: Equatable, Sendable {
+    case idle
+    case running
+    case succeeded
+    case failed(String)
+}
+
+struct SSHKeyMaterial: Equatable, Sendable {
+    let privateKeyPath: String
+    let publicKeyPath: String
+    let publicKey: String
+    let fingerprint: String
+}
+
+enum SSHKeyState: Equatable, Sendable {
+    case checking
+    case missing
+    case existing(SSHKeyMaterial)
+    case generated(SSHKeyMaterial)
+    case failed(String)
 }

@@ -49,7 +49,8 @@ struct RemediationAdvisorHeuristicTests {
 
         #expect(advice.source == .heuristics)
         #expect(advice.summary.lowercased().contains("github"))
-        #expect(advice.commands.contains { $0.contains("gh auth login") })
+        #expect(advice.commands.contains(GitHubAuthPolicy.loginCommand))
+        #expect(advice.commands.contains(GitHubAuthPolicy.statusCommand))
     }
 
     @Test

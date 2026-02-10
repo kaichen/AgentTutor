@@ -203,11 +203,11 @@ enum InstallCatalog {
             defaultSelected: true,
             dependencies: ["core-cli"],
             commands: [
-                InstallCommand("gh auth status >/dev/null 2>&1 || gh auth login --hostname github.com --web --git-protocol https", timeoutSeconds: 1500)
+                InstallCommand("\(GitHubAuthPolicy.statusCommand) || \(GitHubAuthPolicy.loginCommand)", timeoutSeconds: 1500)
             ],
             verificationChecks: singleVerificationCheck(
                 name: "gh auth",
-                command: "gh auth status >/dev/null 2>&1"
+                command: GitHubAuthPolicy.statusCommand
             ),
             remediationHints: [
                 "Complete the browser authorization flow and return.",

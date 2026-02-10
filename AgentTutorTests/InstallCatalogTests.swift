@@ -143,4 +143,17 @@ struct InstallCatalogTests {
         #expect(brewCheck?.brewPackage?.name == "node@22")
         #expect(brewCheck?.brewPackage?.kind == .formula)
     }
+
+    @Test
+    func ghAuthUsesSshProtocolPolicy() {
+        guard let ghAuth = InstallCatalog.allItems.first(where: { $0.id == "gh-auth" }) else {
+            Issue.record("gh-auth item missing from catalog")
+            return
+        }
+
+        #expect(ghAuth.commands.count == 1)
+        #expect(ghAuth.commands[0].shell.contains("--git-protocol ssh"))
+        #expect(ghAuth.commands[0].shell.contains(GitHubAuthPolicy.loginCommand))
+        #expect(ghAuth.verificationChecks.first?.command == GitHubAuthPolicy.statusCommand)
+    }
 }

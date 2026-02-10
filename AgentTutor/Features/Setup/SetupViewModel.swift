@@ -24,6 +24,11 @@ final class SetupViewModel: ObservableObject {
     @Published var pendingRemediationCommand: String = ""
     @Published var isRunningRemediationCommand: Bool = false
     @Published var apiKeyValidationStatus: APIKeyValidationStatus = .idle
+    @Published var gitUserName: String = ""
+    @Published var gitUserEmail: String = ""
+    @Published var gitConfigStatus: ActionStatus = .idle
+    @Published var sshKeyState: SSHKeyState = .checking
+    @Published var githubUploadStatus: ActionStatus = .idle
     @Published private(set) var installStartTime: Date?
     @Published private(set) var installEndTime: Date?
 
@@ -33,16 +38,20 @@ final class SetupViewModel: ObservableObject {
     private let planner: InstallPlanner
     private let shell: ShellExecuting
     private let advisor: RemediationAdvising
+    let gitSSHService: GitSSHServicing
     private var apiKeyValidationTask: Task<Void, Never>?
     private var brewPackageCache: BrewPackageCache?
     private var brewPackageCacheLoaded = false
+    var didPrepareGitSSHStep = false
 
     convenience init() {
+        let shell = ShellExecutor()
         self.init(
             catalog: InstallCatalog.allItems,
-            shell: ShellExecutor(),
+            shell: shell,
             advisor: RemediationAdvisor(),
-            logger: InstallLogger()
+            logger: InstallLogger(),
+            gitSSHService: GitSSHService(shell: shell)
         )
     }
 
@@ -50,12 +59,14 @@ final class SetupViewModel: ObservableObject {
         catalog: [InstallItem],
         shell: ShellExecuting,
         advisor: RemediationAdvising,
-        logger: InstallLogger
+        logger: InstallLogger,
+        gitSSHService: GitSSHServicing? = nil
     ) {
         self.catalog = catalog
         self.shell = shell
         self.advisor = advisor
         self.logger = logger
+        self.gitSSHService = gitSSHService ?? GitSSHService(shell: shell)
         self.planner = InstallPlanner(catalog: catalog)
         self.selectedItemIDs = Set(catalog.filter { $0.defaultSelected || $0.isRequired }.map(\.id))
         ensureDependenciesAndRequireds()
@@ -141,6 +152,10 @@ final class SetupViewModel: ObservableObject {
         activeFailure = nil
         remediationAdvice = nil
         liveLog = []
+        gitConfigStatus = .idle
+        githubUploadStatus = .idle
+        sshKeyState = .checking
+        didPrepareGitSSHStep = false
         navigationDirection = .forward
         installStartTime = Date()
         installEndTime = nil
@@ -189,8 +204,8 @@ final class SetupViewModel: ObservableObject {
 
                 runState = .completed
                 installEndTime = Date()
-                stage = .completion
                 await logger.log(level: .info, message: "Install session completed")
+                stage = .gitSSH
             } catch {
                 runState = .failed
                 userNotice = error.localizedDescription

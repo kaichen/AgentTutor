@@ -74,7 +74,7 @@ struct SetupViewModelTests {
     func moveNextFromCompletionStaysAtCompletion() {
         let vm = makeVM()
         // Advance to completion
-        for _ in 0..<4 { vm.moveNext() }
+        for _ in 0..<5 { vm.moveNext() }
         #expect(vm.stage == .completion)
         vm.moveNext()
         #expect(vm.stage == .completion)
@@ -219,7 +219,7 @@ struct SetupViewModelTests {
         try await Task.sleep(nanoseconds: 500_000_000)
 
         #expect(vm.runState == .completed)
-        #expect(vm.stage == .completion)
+        #expect(vm.stage == .gitSSH)
         #expect(vm.activeFailure == nil)
         #expect(shell.invocations.count == 3)
     }
@@ -448,6 +448,247 @@ struct SetupViewModelTests {
         #expect(vm.activeFailure?.itemID == "first")
         // Second item should never have been attempted (first item only preflight + install)
         #expect(shell.invocations.count == 2)
+    }
+
+    // MARK: - Git & SSH Stage
+
+    @Test
+    func prepareGitSSHStepLoadsIdentityAndExistingKey() async throws {
+        let material = SSHKeyMaterial(
+            privateKeyPath: "/tmp/mock/id_ed25519",
+            publicKeyPath: "/tmp/mock/id_ed25519.pub",
+            publicKey: "ssh-ed25519 AAAAC3Nza...",
+            fingerprint: "256 SHA256:abc mock@example.com (ED25519)"
+        )
+        let gitSSHService = MockGitSSHService(
+            readGlobalGitIdentityResult: .success(GitIdentity(name: "Kai", email: "kai@example.com")),
+            loadExistingSSHKeyMaterialResult: .success(material)
+        )
+        let vm = SetupViewModel(
+            catalog: [],
+            shell: MockShellExecutor(),
+            advisor: MockRemediationAdvisor(),
+            logger: InstallLogger(),
+            gitSSHService: gitSSHService
+        )
+        vm.stage = .gitSSH
+
+        vm.prepareGitSSHStep()
+        try await Task.sleep(nanoseconds: 200_000_000)
+
+        #expect(vm.gitUserName == "Kai")
+        #expect(vm.gitUserEmail == "kai@example.com")
+        #expect(vm.sshKeyState == .existing(material))
+    }
+
+    @Test
+    func skipGitSSHStepTransitionsToCompletion() {
+        let vm = makeVM()
+        vm.stage = .gitSSH
+
+        vm.skipGitSSHStep()
+
+        #expect(vm.stage == .completion)
+        #expect(vm.userNotice.contains("Skipped"))
+    }
+
+    @Test
+    func applyGitIdentityValidatesInput() {
+        let vm = makeVM()
+        vm.stage = .gitSSH
+        vm.gitUserName = ""
+        vm.gitUserEmail = "invalid-email"
+
+        vm.applyGitIdentity()
+
+        #expect(vm.gitConfigStatus == .failed("Git user.name is required."))
+    }
+
+    @Test
+    func applyGitIdentitySucceedsWithValidFields() async throws {
+        let gitSSHService = MockGitSSHService(
+            writeGlobalGitIdentityResult: .success(
+                GitIdentity(name: "Kai Chen", email: "kai@example.com")
+            )
+        )
+        let vm = SetupViewModel(
+            catalog: [],
+            shell: MockShellExecutor(),
+            advisor: MockRemediationAdvisor(),
+            logger: InstallLogger(),
+            gitSSHService: gitSSHService
+        )
+        vm.stage = .gitSSH
+        vm.gitUserName = "Kai Chen"
+        vm.gitUserEmail = "kai@example.com"
+
+        vm.applyGitIdentity()
+        try await Task.sleep(nanoseconds: 200_000_000)
+
+        #expect(vm.gitConfigStatus == .succeeded)
+        #expect(gitSSHService.writeRequests.count == 1)
+        #expect(gitSSHService.writeRequests[0].name == "Kai Chen")
+        #expect(gitSSHService.writeRequests[0].email == "kai@example.com")
+    }
+
+    @Test
+    func generateSSHKeyIfNeededCreatesNewKeyWhenMissing() async throws {
+        let generated = SSHKeyMaterial(
+            privateKeyPath: "/tmp/mock/id_ed25519",
+            publicKeyPath: "/tmp/mock/id_ed25519.pub",
+            publicKey: "ssh-ed25519 AAAAC3Nza-new...",
+            fingerprint: "256 SHA256:new mock@example.com (ED25519)"
+        )
+        let gitSSHService = MockGitSSHService(
+            loadExistingSSHKeyMaterialResult: .success(nil),
+            generateSSHKeyResult: .success(generated)
+        )
+        let vm = SetupViewModel(
+            catalog: [],
+            shell: MockShellExecutor(),
+            advisor: MockRemediationAdvisor(),
+            logger: InstallLogger(),
+            gitSSHService: gitSSHService
+        )
+        vm.stage = .gitSSH
+        vm.sshKeyState = .missing
+        vm.gitUserEmail = "kai@example.com"
+
+        vm.generateSSHKeyIfNeeded()
+        try await Task.sleep(nanoseconds: 200_000_000)
+
+        #expect(vm.sshKeyState == .generated(generated))
+        #expect(gitSSHService.generateCallComments.count == 1)
+        #expect(gitSSHService.generateCallComments[0] == "kai@example.com")
+    }
+
+    @Test
+    func generateSSHKeyIfNeededReusesExistingKey() async throws {
+        let existing = SSHKeyMaterial(
+            privateKeyPath: "/tmp/mock/id_ed25519",
+            publicKeyPath: "/tmp/mock/id_ed25519.pub",
+            publicKey: "ssh-ed25519 AAAAC3Nza-existing...",
+            fingerprint: "256 SHA256:existing mock@example.com (ED25519)"
+        )
+        let gitSSHService = MockGitSSHService(loadExistingSSHKeyMaterialResult: .success(existing))
+        let vm = SetupViewModel(
+            catalog: [],
+            shell: MockShellExecutor(),
+            advisor: MockRemediationAdvisor(),
+            logger: InstallLogger(),
+            gitSSHService: gitSSHService
+        )
+        vm.stage = .gitSSH
+        vm.sshKeyState = .missing
+
+        vm.generateSSHKeyIfNeeded()
+        try await Task.sleep(nanoseconds: 200_000_000)
+
+        #expect(vm.sshKeyState == .existing(existing))
+        #expect(gitSSHService.generateCallComments.isEmpty)
+    }
+
+    @Test
+    func uploadPublicKeyToGitHubTreatsAlreadyExistsAsSuccess() async throws {
+        let existing = SSHKeyMaterial(
+            privateKeyPath: "/tmp/mock/id_ed25519",
+            publicKeyPath: "/tmp/mock/id_ed25519.pub",
+            publicKey: "ssh-ed25519 AAAAC3Nza-existing...",
+            fingerprint: "256 SHA256:existing mock@example.com (ED25519)"
+        )
+        let gitSSHService = MockGitSSHService(uploadPublicKeyResult: .success(.alreadyExists))
+        let vm = SetupViewModel(
+            catalog: [],
+            shell: MockShellExecutor(),
+            advisor: MockRemediationAdvisor(),
+            logger: InstallLogger(),
+            gitSSHService: gitSSHService
+        )
+        vm.stage = .gitSSH
+        vm.sshKeyState = .existing(existing)
+
+        vm.uploadPublicKeyToGitHub()
+        try await Task.sleep(nanoseconds: 200_000_000)
+
+        #expect(vm.githubUploadStatus == .succeeded)
+        #expect(gitSSHService.uploadRequests.count == 1)
+        #expect(gitSSHService.uploadRequests[0].publicKeyPath == existing.publicKeyPath)
+        #expect(gitSSHService.uploadRequests[0].title == gitSSHService.defaultKeyTitle)
+    }
+
+    @Test
+    func uploadPublicKeyToGitHubSucceedsWhenUploaded() async throws {
+        let existing = SSHKeyMaterial(
+            privateKeyPath: "/tmp/mock/id_ed25519",
+            publicKeyPath: "/tmp/mock/id_ed25519.pub",
+            publicKey: "ssh-ed25519 AAAAC3Nza-existing...",
+            fingerprint: "256 SHA256:existing mock@example.com (ED25519)"
+        )
+        let gitSSHService = MockGitSSHService(uploadPublicKeyResult: .success(.uploaded))
+        let vm = SetupViewModel(
+            catalog: [],
+            shell: MockShellExecutor(),
+            advisor: MockRemediationAdvisor(),
+            logger: InstallLogger(),
+            gitSSHService: gitSSHService
+        )
+        vm.stage = .gitSSH
+        vm.sshKeyState = .existing(existing)
+
+        vm.uploadPublicKeyToGitHub()
+        try await Task.sleep(nanoseconds: 200_000_000)
+
+        #expect(vm.githubUploadStatus == .succeeded)
+        #expect(vm.userNotice.contains("uploaded"))
+    }
+
+    @Test
+    func uploadPublicKeyToGitHubFailsWhenGitHubNotAuthenticated() async throws {
+        let existing = SSHKeyMaterial(
+            privateKeyPath: "/tmp/mock/id_ed25519",
+            publicKeyPath: "/tmp/mock/id_ed25519.pub",
+            publicKey: "ssh-ed25519 AAAAC3Nza-existing...",
+            fingerprint: "256 SHA256:existing mock@example.com (ED25519)"
+        )
+        let gitSSHService = MockGitSSHService(
+            uploadPublicKeyResult: .failure(.notAuthenticated("not logged in"))
+        )
+        let vm = SetupViewModel(
+            catalog: [],
+            shell: MockShellExecutor(),
+            advisor: MockRemediationAdvisor(),
+            logger: InstallLogger(),
+            gitSSHService: gitSSHService
+        )
+        vm.stage = .gitSSH
+        vm.sshKeyState = .existing(existing)
+
+        vm.uploadPublicKeyToGitHub()
+        try await Task.sleep(nanoseconds: 200_000_000)
+
+        switch vm.githubUploadStatus {
+        case .failed:
+            break
+        default:
+            Issue.record("Expected failed upload status when gh auth is missing")
+        }
+    }
+
+    @Test
+    func copyPublicKeyUpdatesNotice() {
+        let existing = SSHKeyMaterial(
+            privateKeyPath: "/tmp/mock/id_ed25519",
+            publicKeyPath: "/tmp/mock/id_ed25519.pub",
+            publicKey: "ssh-ed25519 AAAAC3Nza-existing...",
+            fingerprint: "256 SHA256:existing mock@example.com (ED25519)"
+        )
+        let vm = makeVM()
+        vm.stage = .gitSSH
+        vm.sshKeyState = .existing(existing)
+
+        vm.copyPublicKey()
+
+        #expect(vm.userNotice.contains("copied") || vm.userNotice.contains("Unable"))
     }
 
     // MARK: - Remediation Command

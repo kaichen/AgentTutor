@@ -84,8 +84,8 @@ final class RemediationAdvisor: RemediationAdvising {
             return RemediationAdvice(
                 summary: "GitHub authentication needs to be completed before setup can finish.",
                 commands: [
-                    "gh auth login --hostname github.com --web --git-protocol https",
-                    "gh auth status"
+                    GitHubAuthPolicy.loginCommand,
+                    GitHubAuthPolicy.statusCommand
                 ],
                 notes: hints.joined(separator: " "),
                 source: .heuristics
