@@ -3,6 +3,10 @@
 AgentTutor is a macOS desktop setup assistant for Apple Silicon developer machines.  
 It runs a guided setup flow, installs a curated toolchain, verifies each component, and stops immediately on failures with remediation guidance.
 
+## Screenshot
+
+![AgentTutor screenshot](screenshot.png)
+
 ## Current Capabilities
 
 - 6-stage SwiftUI setup wizard: welcome -> OpenAI config -> component selection -> install -> Git/SSH -> completion
