@@ -79,16 +79,16 @@ struct CompletionView: View {
                 .allowsHitTesting(false)
         }
         .onAppear {
-            withAnimation(.easeOut(duration: 0.5).delay(0.5)) {
+            withAnimation(.spring(duration: 0.5, bounce: 0.15).delay(0.5)) {
                 showTitle = true
             }
-            withAnimation(.easeOut(duration: 0.5).delay(0.9)) {
+            withAnimation(.spring(duration: 0.5, bounce: 0.15).delay(0.9)) {
                 showStats = true
             }
-            withAnimation(.easeOut(duration: 0.5).delay(1.2)) {
+            withAnimation(.spring(duration: 0.5, bounce: 0.15).delay(1.2)) {
                 showWhatsNext = true
             }
-            withAnimation(.easeOut(duration: 0.3).delay(1.5)) {
+            withAnimation(.spring(duration: 0.3, bounce: 0.1).delay(1.5)) {
                 showButton = true
             }
         }
@@ -199,6 +199,7 @@ private struct ConfettiView: View {
                     )
             }
         }
+        .drawingGroup()
         .onAppear {
             animate = true
         }

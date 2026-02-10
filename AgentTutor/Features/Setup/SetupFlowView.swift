@@ -18,7 +18,7 @@ struct SetupFlowView: View {
                     ))
             }
             .clipped()
-            .animation(.easeInOut(duration: 0.3), value: viewModel.stage)
+            .animation(.spring(duration: 0.35, bounce: 0.1), value: viewModel.stage)
             Divider()
             footer
         }
@@ -133,6 +133,7 @@ private struct StepIndicator: View {
                             Image(systemName: "checkmark")
                                 .font(.system(size: 9, weight: .bold))
                                 .foregroundStyle(.white)
+                                .transition(.scale.combined(with: .opacity))
                         } else if stage == currentStage {
                             Circle()
                                 .fill(.white)
@@ -163,6 +164,7 @@ private struct StepIndicator: View {
             }
         }
         .padding(.horizontal, 60)
+        .animation(.easeInOut(duration: 0.35), value: currentStage)
     }
 
     private func label(for stage: SetupStage) -> String {
@@ -209,36 +211,36 @@ private struct WelcomeView: View {
     ]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 28) {
+            VStack(alignment: .leading, spacing: 8) {
                 Text("Prepare your Mac for development")
-                    .font(.title3)
+                    .font(.title2)
                     .fontWeight(.semibold)
                 Text("Guided, automated environment setup with intelligent error recovery.")
                     .font(.body)
                     .foregroundStyle(.secondary)
             }
 
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
                 ForEach(features) { feature in
-                    HStack(alignment: .top, spacing: 12) {
+                    HStack(alignment: .top, spacing: 14) {
                         Image(systemName: feature.icon)
-                            .font(.title2)
+                            .font(.title)
                             .foregroundStyle(Color.accentColor)
-                            .frame(width: 32)
+                            .frame(width: 36)
 
-                        VStack(alignment: .leading, spacing: 2) {
+                        VStack(alignment: .leading, spacing: 4) {
                             Text(feature.title)
                                 .font(.headline)
                             Text(feature.description)
-                                .font(.caption)
+                                .font(.subheadline)
                                 .foregroundStyle(.secondary)
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(12)
+                    .padding(16)
                     .background(.quaternary.opacity(0.5))
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
                 }
             }
 
@@ -360,9 +362,9 @@ private struct SelectionView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 18) {
                 Text("Choose what to install")
-                    .font(.title3)
+                    .font(.title2)
                     .fontWeight(.semibold)
 
                 ForEach(InstallCategory.allCases, id: \.rawValue) { category in
@@ -370,7 +372,7 @@ private struct SelectionView: View {
                         Divider()
                             .padding(.vertical, 2)
 
-                        VStack(alignment: .leading, spacing: 8) {
+                        VStack(alignment: .leading, spacing: 10) {
                             Text(category.rawValue)
                                 .font(.headline)
 
@@ -382,6 +384,7 @@ private struct SelectionView: View {
                                     VStack(alignment: .leading, spacing: 4) {
                                         HStack(spacing: 6) {
                                             Text(item.name)
+                                                .font(.body)
                                             if item.isRequired {
                                                 Text("Required")
                                                     .font(.caption2)
@@ -394,11 +397,12 @@ private struct SelectionView: View {
                                             }
                                         }
                                         Text(item.summary)
-                                            .font(.footnote)
+                                            .font(.subheadline)
                                             .foregroundStyle(.secondary)
                                     }
                                 }
                                 .disabled(!viewModel.canToggle(item))
+                                .padding(.vertical, 2)
                             }
                         }
                     }
@@ -513,9 +517,7 @@ private struct InstallView: View {
                         }
                     }
                     .onChange(of: viewModel.liveLog.count) {
-                        withAnimation(.easeOut(duration: 0.15)) {
-                            proxy.scrollTo("logBottom", anchor: .bottom)
-                        }
+                        proxy.scrollTo("logBottom", anchor: .bottom)
                     }
                 }
                 .padding(10)
