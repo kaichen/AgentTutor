@@ -277,7 +277,20 @@ private struct APIKeyView: View {
                 }
             }
             .pickerStyle(.segmented)
-            .onChange(of: provider) { onProviderChanged() }
+            .onChange(of: provider) {
+                onProviderChanged()
+                syncBaseURLDisclosureState(for: provider)
+            }
+
+            HStack(spacing: 6) {
+                Text("Model")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                Text(provider.defaultModelName)
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .textSelection(.enabled)
+            }
 
             DisclosureGroup(isExpanded: $isBaseURLExpanded) {
                 VStack(alignment: .leading, spacing: 6) {
@@ -287,6 +300,18 @@ private struct APIKeyView: View {
                     TextField(provider.defaultBaseURL, text: $baseURL)
                         .textFieldStyle(.roundedBorder)
                         .onChange(of: baseURL) { onBaseURLChanged() }
+
+                    if !provider.endpointPresets.isEmpty {
+                        HStack(spacing: 8) {
+                            Text("Endpoint")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            ForEach(provider.endpointPresets) { preset in
+                                endpointPresetButton(for: preset)
+                            }
+                        }
+                    }
                 }
                 .padding(.top, 4)
             } label: {
@@ -347,7 +372,47 @@ private struct APIKeyView: View {
 
             Spacer()
         }
+        .onAppear {
+            syncBaseURLDisclosureState(for: provider)
+        }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    private func syncBaseURLDisclosureState(for provider: LLMProvider) {
+        isBaseURLExpanded = !provider.endpointPresets.isEmpty
+    }
+
+    private func applyEndpointPreset(_ preset: LLMProvider.EndpointPreset) {
+        baseURL = preset.baseURL
+        onBaseURLChanged()
+    }
+
+    @ViewBuilder
+    private func endpointPresetButton(for preset: LLMProvider.EndpointPreset) -> some View {
+        if isPresetSelected(preset) {
+            Button(preset.label) {
+                applyEndpointPreset(preset)
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.small)
+        } else {
+            Button(preset.label) {
+                applyEndpointPreset(preset)
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+        }
+    }
+
+    private func isPresetSelected(_ preset: LLMProvider.EndpointPreset) -> Bool {
+        normalizedBaseURL(baseURL) == normalizedBaseURL(preset.baseURL)
+    }
+
+    private func normalizedBaseURL(_ value: String) -> String {
+        value
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+            .lowercased()
     }
 }
 

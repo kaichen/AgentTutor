@@ -333,10 +333,14 @@ final class SetupViewModel: ObservableObject {
         }
     }
 
-    private static func endpointURL(baseURL: String, path: String) -> URL? {
-        let normalizedBase = baseURL
+    private static func normalizedBaseURL(_ value: String) -> String {
+        value
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+    }
+
+    private static func endpointURL(baseURL: String, path: String) -> URL? {
+        let normalizedBase = normalizedBaseURL(baseURL)
         guard !normalizedBase.isEmpty else {
             return nil
         }
