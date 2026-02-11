@@ -93,9 +93,9 @@ enum LLMProvider: String, CaseIterable, Identifiable, Codable, Sendable {
     var defaultModelName: String {
         switch self {
         case .openai:
-            return "gpt-4.1-mini"
+            return "gpt-5.1-codex-mini"
         case .openrouter:
-            return "openai/gpt-4.1-mini"
+            return "openai/gpt-5.1-codex-mini"
         case .kimi:
             return "kimi-for-coding"
         case .minimax:

@@ -174,8 +174,8 @@ struct SetupViewModelTests {
 
     @Test
     func providerDefaultModelNameIsDefined() {
-        #expect(LLMProvider.openai.defaultModelName == "gpt-4.1-mini")
-        #expect(LLMProvider.openrouter.defaultModelName == "openai/gpt-4.1-mini")
+        #expect(LLMProvider.openai.defaultModelName == "gpt-5.1-codex-mini")
+        #expect(LLMProvider.openrouter.defaultModelName == "openai/gpt-5.1-codex-mini")
         #expect(LLMProvider.kimi.defaultModelName == "kimi-for-coding")
         #expect(LLMProvider.minimax.defaultModelName == "MiniMax-M2.1")
     }

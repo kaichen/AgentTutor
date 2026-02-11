@@ -14,7 +14,7 @@ final class RemediationAdvisor: RemediationAdvising {
     private let session: URLSession
     private let model: String
 
-    init(session: URLSession = .shared, model: String = "gpt-4.1-mini") {
+    init(session: URLSession = .shared, model: String = "gpt-5.1-codex-mini") {
         self.session = session
         self.model = model
     }

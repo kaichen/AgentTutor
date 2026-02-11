@@ -12,7 +12,7 @@ It runs a guided setup flow, installs a curated toolchain, verifies each compone
 - 6-stage SwiftUI setup wizard: welcome -> OpenAI config -> component selection -> install -> Git/SSH -> completion
 - Manifest-driven install catalog (`InstallCatalog`) with dependency resolution (`InstallPlanner`)
 - Preflight + post-install verification checks for every install item
-- Fail-fast execution with remediation advice (`heuristics` first, OpenAI fallback through `gpt-4.1-mini`)
+- Fail-fast execution with remediation advice (`heuristics` first, OpenAI fallback through `gpt-5.1-codex-mini`)
 - User-approved remediation command execution with safety filtering (`CommandSafety`)
 - Post-install Git identity setup (`git config --global user.name` / `user.email`) and SSH key management (`~/.ssh/id_ed25519`)
 - GitHub auth policy is centralized and uses SSH git protocol end-to-end
