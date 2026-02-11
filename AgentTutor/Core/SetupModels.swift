@@ -77,13 +77,13 @@ enum LLMProvider: String, CaseIterable, Identifiable, Codable, Sendable {
         switch self {
         case .kimi:
             return [
-                EndpointPreset(label: "CN", baseURL: "https://api.moonshot.ai/v1"),
-                EndpointPreset(label: "Global", baseURL: "https://api.kimi.com/coding/v1"),
+                EndpointPreset(label: "Global", baseURL: "https://api.moonshot.ai/v1"),
+                EndpointPreset(label: "CN", baseURL: "https://api.kimi.com/coding/v1"),
             ]
         case .minimax:
             return [
-                EndpointPreset(label: "CN", baseURL: "https://api.minimax.io/v1"),
-                EndpointPreset(label: "Global", baseURL: "https://api.minimaxi.com/v1"),
+                EndpointPreset(label: "Global", baseURL: "https://api.minimax.io/v1"),
+                EndpointPreset(label: "CN", baseURL: "https://api.minimaxi.com/v1"),
             ]
         default:
             return []
@@ -97,9 +97,9 @@ enum LLMProvider: String, CaseIterable, Identifiable, Codable, Sendable {
         case .openrouter:
             return "openai/gpt-4.1-mini"
         case .kimi:
-            return "moonshot-v1-8k"
+            return "kimi-for-coding"
         case .minimax:
-            return "abab6.5-chat"
+            return "MiniMax-M2.1"
         }
     }
 

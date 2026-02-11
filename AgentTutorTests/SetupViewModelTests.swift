@@ -159,8 +159,8 @@ struct SetupViewModelTests {
         let presets = LLMProvider.kimi.endpointPresets
 
         #expect(presets.count == 2)
-        #expect(presets.contains(where: { $0.label == "CN" && $0.baseURL == "https://api.moonshot.ai/v1" }))
-        #expect(presets.contains(where: { $0.label == "Global" && $0.baseURL == "https://api.kimi.com/coding/v1" }))
+        #expect(presets.contains(where: { $0.label == "Global" && $0.baseURL == "https://api.moonshot.ai/v1" }))
+        #expect(presets.contains(where: { $0.label == "CN" && $0.baseURL == "https://api.kimi.com/coding/v1" }))
     }
 
     @Test
@@ -168,16 +168,16 @@ struct SetupViewModelTests {
         let presets = LLMProvider.minimax.endpointPresets
 
         #expect(presets.count == 2)
-        #expect(presets.contains(where: { $0.label == "CN" && $0.baseURL == "https://api.minimax.io/v1" }))
-        #expect(presets.contains(where: { $0.label == "Global" && $0.baseURL == "https://api.minimaxi.com/v1" }))
+        #expect(presets.contains(where: { $0.label == "Global" && $0.baseURL == "https://api.minimax.io/v1" }))
+        #expect(presets.contains(where: { $0.label == "CN" && $0.baseURL == "https://api.minimaxi.com/v1" }))
     }
 
     @Test
     func providerDefaultModelNameIsDefined() {
         #expect(LLMProvider.openai.defaultModelName == "gpt-4.1-mini")
         #expect(LLMProvider.openrouter.defaultModelName == "openai/gpt-4.1-mini")
-        #expect(LLMProvider.kimi.defaultModelName == "moonshot-v1-8k")
-        #expect(LLMProvider.minimax.defaultModelName == "abab6.5-chat")
+        #expect(LLMProvider.kimi.defaultModelName == "kimi-for-coding")
+        #expect(LLMProvider.minimax.defaultModelName == "MiniMax-M2.1")
     }
 
     // MARK: - Selection Logic
