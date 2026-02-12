@@ -47,7 +47,7 @@ final class SetupViewModel: ObservableObject {
     convenience init() {
         let shell = ShellExecutor()
         self.init(
-            catalog: InstallCatalog.allItems,
+            catalog: InstallCatalog.items(for: .current),
             shell: shell,
             advisor: RemediationAdvisor(),
             logger: InstallLogger(),

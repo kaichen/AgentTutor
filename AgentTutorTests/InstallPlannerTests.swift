@@ -41,6 +41,33 @@ struct InstallPlannerTests {
     }
 
     @Test
+    func intelArchitectureSkipsUnsupportedSelections() throws {
+        let planner = InstallPlanner(catalog: InstallCatalog.allItems)
+        let plan = try planner.resolvedPlan(
+            selectedIDs: ["codex-app"],
+            apiKey: "sk-test",
+            architecture: .x86_64
+        )
+
+        let plannedIDs = Set(plan.map(\.id))
+        #expect(!plannedIDs.contains("codex-app"))
+    }
+
+    @Test
+    func arm64ArchitectureKeepsSupportedSelections() throws {
+        let planner = InstallPlanner(catalog: InstallCatalog.allItems)
+        let plan = try planner.resolvedPlan(
+            selectedIDs: ["codex-app"],
+            apiKey: "sk-test",
+            architecture: .arm64
+        )
+
+        let plannedIDs = Set(plan.map(\.id))
+        #expect(plannedIDs.contains("codex-app"))
+        #expect(plannedIDs.contains("homebrew"))
+    }
+
+    @Test
     func unknownDependencyThrowsConfigurationError() {
         let brokenCatalog = [
             InstallItem(

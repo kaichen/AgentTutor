@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 
 enum SetupStage: Int, CaseIterable {
@@ -121,6 +122,21 @@ enum InstallCategory: String, CaseIterable, Codable, Sendable {
     case auth = "Authentication"
 }
 
+enum MacSystemArchitecture: String, CaseIterable, Codable, Sendable {
+    case arm64
+    case x86_64
+
+    static var current: MacSystemArchitecture {
+        var isArm64Hardware: Int32 = 0
+        var size = MemoryLayout<Int32>.size
+        let status = sysctlbyname("hw.optional.arm64", &isArm64Hardware, &size, nil, 0)
+        if status == 0, isArm64Hardware == 1 {
+            return .arm64
+        }
+        return .x86_64
+    }
+}
+
 enum CommandAuthMode: String, Codable, Sendable {
     case standard
     case adminAppleScript
@@ -184,6 +200,37 @@ struct InstallItem: Identifiable, Hashable, Codable, Sendable {
     let commands: [InstallCommand]
     let verificationChecks: [InstallVerificationCheck]
     let remediationHints: [String]
+    let supportedArchitectures: Set<MacSystemArchitecture>
+
+    init(
+        id: String,
+        name: String,
+        summary: String,
+        category: InstallCategory,
+        isRequired: Bool,
+        defaultSelected: Bool,
+        dependencies: [String],
+        commands: [InstallCommand],
+        verificationChecks: [InstallVerificationCheck],
+        remediationHints: [String],
+        supportedArchitectures: Set<MacSystemArchitecture> = Set(MacSystemArchitecture.allCases)
+    ) {
+        self.id = id
+        self.name = name
+        self.summary = summary
+        self.category = category
+        self.isRequired = isRequired
+        self.defaultSelected = defaultSelected
+        self.dependencies = dependencies
+        self.commands = commands
+        self.verificationChecks = verificationChecks
+        self.remediationHints = remediationHints
+        self.supportedArchitectures = supportedArchitectures
+    }
+
+    func supports(_ architecture: MacSystemArchitecture) -> Bool {
+        supportedArchitectures.contains(architecture)
+    }
 }
 
 enum StepExecutionStatus: String, Sendable {

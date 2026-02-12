@@ -201,4 +201,20 @@ struct InstallCatalogTests {
         #expect(homebrew.commands.count == 1)
         #expect(homebrew.commands[0].authMode == .sudoAskpass)
     }
+
+    @Test
+    func codexAppSupportsOnlyArm64AndIsExcludedOnIntelCatalog() {
+        guard let codexApp = InstallCatalog.allItems.first(where: { $0.id == "codex-app" }) else {
+            Issue.record("codex-app item missing from catalog")
+            return
+        }
+
+        #expect(codexApp.supportedArchitectures == [.arm64])
+
+        let intelCatalogIDs = Set(InstallCatalog.items(for: .x86_64).map(\.id))
+        let armCatalogIDs = Set(InstallCatalog.items(for: .arm64).map(\.id))
+
+        #expect(!intelCatalogIDs.contains("codex-app"))
+        #expect(armCatalogIDs.contains("codex-app"))
+    }
 }

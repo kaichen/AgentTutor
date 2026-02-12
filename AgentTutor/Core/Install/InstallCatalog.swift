@@ -5,6 +5,10 @@ enum InstallCatalog {
         [InstallVerificationCheck(name, command: command, timeoutSeconds: timeoutSeconds)]
     }
 
+    static func items(for architecture: MacSystemArchitecture) -> [InstallItem] {
+        allItems.filter { $0.supports(architecture) }
+    }
+
     static let allItems: [InstallItem] = [
         InstallItem(
             id: "xcode-cli-tools",
@@ -255,7 +259,8 @@ enum InstallCatalog {
             remediationHints: [
                 "Close existing Codex App installers and retry.",
                 "Grant any macOS permission prompts if shown."
-            ]
+            ],
+            supportedArchitectures: [.arm64]
         ),
         InstallItem(
             id: "gh-auth",

@@ -17,22 +17,30 @@ enum PlanValidationError: LocalizedError, Equatable {
 struct InstallPlanner {
     let catalog: [InstallItem]
 
-    func resolvedPlan(selectedIDs: Set<String>, apiKey: String) throws -> [InstallItem] {
+    func resolvedPlan(
+        selectedIDs: Set<String>,
+        apiKey: String,
+        architecture: MacSystemArchitecture = .current
+    ) throws -> [InstallItem] {
         let normalizedKey = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !normalizedKey.isEmpty else {
             throw PlanValidationError.missingAPIKey
         }
 
-        var selected = Set(catalog.filter { $0.isRequired }.map(\.id))
-        selected.formUnion(selectedIDs)
+        let supportedCatalog = catalog.filter { $0.supports(architecture) }
+        let supportedItemsByID = Dictionary(uniqueKeysWithValues: supportedCatalog.map { ($0.id, $0) })
+        let supportedIDs = Set(supportedItemsByID.keys)
+
+        var selected = Set(supportedCatalog.filter { $0.isRequired }.map(\.id))
+        selected.formUnion(selectedIDs.intersection(supportedIDs))
 
         var queue = Array(selected)
         while let next = queue.popLast() {
-            guard let item = catalog.first(where: { $0.id == next }) else {
+            guard let item = supportedItemsByID[next] else {
                 continue
             }
             for dependency in item.dependencies where !selected.contains(dependency) {
-                guard catalog.contains(where: { $0.id == dependency }) else {
+                guard supportedItemsByID[dependency] != nil else {
                     throw PlanValidationError.unknownDependency(parent: item.id, dependencyID: dependency)
                 }
                 selected.insert(dependency)
@@ -40,6 +48,6 @@ struct InstallPlanner {
             }
         }
 
-        return catalog.filter { selected.contains($0.id) }
+        return supportedCatalog.filter { selected.contains($0.id) }
     }
 }
