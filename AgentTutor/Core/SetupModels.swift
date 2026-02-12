@@ -7,6 +7,7 @@ enum SetupStage: Int, CaseIterable {
     case selection
     case install
     case gitSSH
+    case openClaw
     case completion
 
     var title: String {
@@ -21,6 +22,8 @@ enum SetupStage: Int, CaseIterable {
             return "Install"
         case .gitSSH:
             return "Git & SSH"
+        case .openClaw:
+            return "OpenClaw"
         case .completion:
             return "Complete"
         }

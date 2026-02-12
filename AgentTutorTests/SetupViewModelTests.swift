@@ -74,7 +74,7 @@ struct SetupViewModelTests {
     func moveNextFromCompletionStaysAtCompletion() {
         let vm = makeVM()
         // Advance to completion
-        for _ in 0..<5 { vm.moveNext() }
+        for _ in 0..<(SetupStage.allCases.count - 1) { vm.moveNext() }
         #expect(vm.stage == .completion)
         vm.moveNext()
         #expect(vm.stage == .completion)
@@ -681,14 +681,101 @@ struct SetupViewModelTests {
     }
 
     @Test
-    func skipGitSSHStepTransitionsToCompletion() {
+    func skipGitSSHStepTransitionsToOpenClaw() {
         let vm = makeVM()
         vm.stage = .gitSSH
 
         vm.skipGitSSHStep()
 
+        #expect(vm.stage == .openClaw)
+        #expect(vm.userNotice.contains("Skipped"))
+    }
+
+    @Test
+    func finishGitSSHStepTransitionsToOpenClaw() {
+        let vm = makeVM()
+        vm.stage = .gitSSH
+
+        vm.finishGitSSHStep()
+
+        #expect(vm.stage == .openClaw)
+    }
+
+    // MARK: - OpenClaw Stage
+
+    @Test
+    func skipOpenClawStepTransitionsToCompletion() {
+        let vm = makeVM()
+        vm.stage = .openClaw
+
+        vm.skipOpenClawStep()
+
         #expect(vm.stage == .completion)
         #expect(vm.userNotice.contains("Skipped"))
+    }
+
+    @Test
+    func installOpenClawStepSucceedsWhenPackagesMissing() async throws {
+        let shell = MockShellExecutor(results: [
+            // check: openclaw-cli missing
+            ShellExecutionResult(exitCode: 1, stdout: "", stderr: "missing", timedOut: false),
+            // check: openclaw cask missing
+            ShellExecutionResult(exitCode: 1, stdout: "", stderr: "missing", timedOut: false),
+            // install openclaw-cli
+            ShellExecutionResult(exitCode: 0, stdout: "installed", stderr: "", timedOut: false),
+            // install openclaw cask
+            ShellExecutionResult(exitCode: 0, stdout: "installed", stderr: "", timedOut: false),
+        ])
+        let vm = SetupViewModel(
+            catalog: [],
+            shell: shell,
+            advisor: MockRemediationAdvisor(),
+            logger: InstallLogger()
+        )
+        vm.stage = .openClaw
+
+        vm.installOpenClawStep()
+        try await Task.sleep(nanoseconds: 500_000_000)
+
+        #expect(vm.stage == .completion)
+        #expect(vm.openClawInstallStatus == .succeeded)
+        #expect(shell.invocations.count == 4)
+        #expect(shell.invocations[0].command == "brew list openclaw-cli >/dev/null 2>&1")
+        #expect(shell.invocations[1].command == "brew list --cask openclaw >/dev/null 2>&1 || [ -d '/Applications/OpenClaw.app' ]")
+        #expect(shell.invocations[2].command == "brew install openclaw-cli")
+        #expect(shell.invocations[3].command == "brew install --cask openclaw")
+    }
+
+    @Test
+    func installOpenClawStepFailsAndStaysOnOpenClawStage() async throws {
+        let shell = MockShellExecutor(results: [
+            // check: openclaw-cli missing
+            ShellExecutionResult(exitCode: 1, stdout: "", stderr: "missing", timedOut: false),
+            // check: openclaw cask missing
+            ShellExecutionResult(exitCode: 1, stdout: "", stderr: "missing", timedOut: false),
+            // install openclaw-cli fails
+            ShellExecutionResult(exitCode: 1, stdout: "", stderr: "failed", timedOut: false),
+        ])
+        let vm = SetupViewModel(
+            catalog: [],
+            shell: shell,
+            advisor: MockRemediationAdvisor(),
+            logger: InstallLogger()
+        )
+        vm.stage = .openClaw
+
+        vm.installOpenClawStep()
+        try await Task.sleep(nanoseconds: 500_000_000)
+
+        #expect(vm.stage == .openClaw)
+        #expect(vm.userNotice.contains("failed"))
+        switch vm.openClawInstallStatus {
+        case .failed:
+            break
+        default:
+            Issue.record("Expected openClawInstallStatus to be failed")
+        }
+        #expect(shell.invocations.count == 3)
     }
 
     @Test

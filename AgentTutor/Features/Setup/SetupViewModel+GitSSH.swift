@@ -213,7 +213,7 @@ extension SetupViewModel {
     func skipGitSSHStep() {
         guard stage == .gitSSH else { return }
         navigationDirection = .forward
-        stage = .completion
+        stage = .openClaw
         userNotice = "Skipped Git and SSH configuration."
 
         Task {
@@ -224,10 +224,7 @@ extension SetupViewModel {
     func finishGitSSHStep() {
         guard stage == .gitSSH else { return }
         navigationDirection = .forward
-        stage = .completion
-        if userNotice.isEmpty {
-            userNotice = "Setup complete."
-        }
+        stage = .openClaw
     }
 
     private func isActionRunning(_ status: ActionStatus) -> Bool {

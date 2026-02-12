@@ -29,6 +29,7 @@ final class SetupViewModel: ObservableObject {
     @Published var gitConfigStatus: ActionStatus = .idle
     @Published var sshKeyState: SSHKeyState = .checking
     @Published var githubUploadStatus: ActionStatus = .idle
+    @Published var openClawInstallStatus: ActionStatus = .idle
     @Published private(set) var installStartTime: Date?
     @Published private(set) var installEndTime: Date?
 
@@ -36,7 +37,7 @@ final class SetupViewModel: ObservableObject {
     let logger: InstallLogger
 
     private let planner: InstallPlanner
-    private let shell: ShellExecuting
+    let shell: ShellExecuting
     private let advisor: RemediationAdvising
     let gitSSHService: GitSSHServicing
     private var apiKeyValidationTask: Task<Void, Never>?
@@ -164,6 +165,7 @@ final class SetupViewModel: ObservableObject {
         liveLog = []
         gitConfigStatus = .idle
         githubUploadStatus = .idle
+        openClawInstallStatus = .idle
         sshKeyState = .checking
         didPrepareGitSSHStep = false
         navigationDirection = .forward
@@ -511,7 +513,7 @@ final class SetupViewModel: ObservableObject {
         }
     }
 
-    private func appendLog(_ line: String) {
+    func appendLog(_ line: String) {
         liveLog.append(line)
         Task {
             await logger.log(level: .info, message: line)

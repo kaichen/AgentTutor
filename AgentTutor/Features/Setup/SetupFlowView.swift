@@ -55,6 +55,8 @@ struct SetupFlowView: View {
             InstallView(viewModel: viewModel)
         case .gitSSH:
             GitSSHSetupView(viewModel: viewModel)
+        case .openClaw:
+            OpenClawSetupView(viewModel: viewModel)
         case .completion:
             CompletionView(viewModel: viewModel)
         }
@@ -71,6 +73,11 @@ struct SetupFlowView: View {
             } else if viewModel.stage == .gitSSH {
                 Button("Skip for now") {
                     viewModel.skipGitSSHStep()
+                }
+                .buttonStyle(.bordered)
+            } else if viewModel.stage == .openClaw {
+                Button("Skip for now") {
+                    viewModel.skipOpenClawStep()
                 }
                 .buttonStyle(.bordered)
             }
@@ -105,11 +112,30 @@ struct SetupFlowView: View {
                 }
                 .buttonStyle(.borderedProminent)
             } else if viewModel.stage == .gitSSH {
-                Button("Finish Setup") {
+                Button("Continue") {
                     viewModel.finishGitSSHStep()
                 }
                 .buttonStyle(.borderedProminent)
+            } else if viewModel.stage == .openClaw {
+                Button(openClawPrimaryButtonTitle) {
+                    viewModel.installOpenClawStep()
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(!viewModel.canInstallOpenClaw)
             }
+        }
+    }
+
+    private var openClawPrimaryButtonTitle: String {
+        switch viewModel.openClawInstallStatus {
+        case .idle:
+            return "Install OpenClaw"
+        case .running:
+            return "Installing..."
+        case .succeeded:
+            return "Install OpenClaw"
+        case .failed:
+            return "Retry Install"
         }
     }
 }
@@ -174,6 +200,7 @@ private struct StepIndicator: View {
         case .selection: "Select"
         case .install: "Install"
         case .gitSSH: "Git/SSH"
+        case .openClaw: "OpenClaw"
         case .completion: "Done"
         }
     }
