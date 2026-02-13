@@ -725,6 +725,10 @@ struct SetupViewModelTests {
             ShellExecutionResult(exitCode: 1, stdout: "", stderr: "missing", timedOut: false),
             // install openclaw cask
             ShellExecutionResult(exitCode: 0, stdout: "installed", stderr: "", timedOut: false),
+            // which openclaw
+            ShellExecutionResult(exitCode: 0, stdout: "/usr/local/bin/openclaw", stderr: "", timedOut: false),
+            // openclaw gateway status
+            ShellExecutionResult(exitCode: 0, stdout: "status: starting", stderr: "", timedOut: false),
             // onboard
             ShellExecutionResult(exitCode: 0, stdout: "onboarded", stderr: "", timedOut: false),
         ])
@@ -743,12 +747,49 @@ struct SetupViewModelTests {
 
         #expect(vm.stage == .completion)
         #expect(vm.openClawInstallStatus == .succeeded)
-        #expect(shell.invocations.count == 5)
+        #expect(shell.invocations.count == 7)
         #expect(shell.invocations[0].command == "brew list openclaw-cli >/dev/null 2>&1")
         #expect(shell.invocations[1].command == "brew install openclaw-cli")
         #expect(shell.invocations[2].command == "brew list --cask openclaw >/dev/null 2>&1 || [ -d '/Applications/OpenClaw.app' ]")
         #expect(shell.invocations[3].command == "brew install --cask openclaw")
-        #expect(shell.invocations[4].command == "openclaw onboard --non-interactive --accept-risk --mode local --auth-choice openrouter-api-key --openrouter-api-key 'key1-test'")
+        #expect(shell.invocations[4].command == "which openclaw")
+        #expect(shell.invocations[5].command == "openclaw gateway status")
+        #expect(shell.invocations[6].command == "openclaw onboard --non-interactive --accept-risk --mode local --auth-choice openrouter-api-key --openrouter-api-key 'key1-test'")
+    }
+
+    @Test
+    func installOpenClawStepSkipsWhenGatewayStatusIsHealthy() async throws {
+        let shell = MockShellExecutor(results: [
+            // check: openclaw-cli
+            ShellExecutionResult(exitCode: 0, stdout: "installed", stderr: "", timedOut: false),
+            // check: openclaw cask
+            ShellExecutionResult(exitCode: 0, stdout: "installed", stderr: "", timedOut: false),
+            // which openclaw
+            ShellExecutionResult(exitCode: 0, stdout: "/usr/local/bin/openclaw", stderr: "", timedOut: false),
+            // openclaw gateway status
+            ShellExecutionResult(exitCode: 0, stdout: "Gateway is running and healthy", stderr: "", timedOut: false),
+        ])
+        let vm = SetupViewModel(
+            catalog: [],
+            shell: shell,
+            advisor: MockRemediationAdvisor(),
+            logger: InstallLogger()
+        )
+        vm.stage = .openClaw
+        vm.apiProvider = .kimi
+        vm.apiKey = "key1-test"
+
+        vm.installOpenClawStep()
+        try await Task.sleep(nanoseconds: 500_000_000)
+
+        #expect(vm.stage == .completion)
+        #expect(vm.openClawInstallStatus == .succeeded)
+        #expect(vm.userNotice == "OpenClaw onboarding already completed. Skipping initialization.")
+        #expect(shell.invocations.count == 4)
+        #expect(shell.invocations[0].command == "brew list openclaw-cli >/dev/null 2>&1")
+        #expect(shell.invocations[1].command == "brew list --cask openclaw >/dev/null 2>&1 || [ -d '/Applications/OpenClaw.app' ]")
+        #expect(shell.invocations[2].command == "which openclaw")
+        #expect(shell.invocations[3].command == "openclaw gateway status")
     }
 
     @Test
@@ -816,6 +857,10 @@ struct SetupViewModelTests {
             ShellExecutionResult(exitCode: 0, stdout: "installed", stderr: "", timedOut: false),
             // check: openclaw cask
             ShellExecutionResult(exitCode: 0, stdout: "installed", stderr: "", timedOut: false),
+            // which openclaw
+            ShellExecutionResult(exitCode: 0, stdout: "/usr/local/bin/openclaw", stderr: "", timedOut: false),
+            // openclaw gateway status
+            ShellExecutionResult(exitCode: 0, stdout: "status: down", stderr: "", timedOut: false),
             // onboard
             ShellExecutionResult(exitCode: 0, stdout: "ok", stderr: "", timedOut: false),
             // enable telegram
@@ -861,15 +906,15 @@ struct SetupViewModelTests {
 
         #expect(vm.stage == .completion)
         #expect(vm.openClawInstallStatus == .succeeded)
-        #expect(shell.invocations.count == 11)
-        #expect(shell.invocations[3].command == "openclaw plugins enable telegram")
-        #expect(shell.invocations[4].command == "openclaw config set --json channels.telegram '{\"botToken\":\"tg-bot-token\",\"enabled\":true}'")
-        #expect(shell.invocations[5].command == "openclaw plugins enable slack")
-        #expect(shell.invocations[6].command == "openclaw config set --json channels.slack '{\"appToken\":\"xapp-test\",\"botToken\":\"xoxb-test\",\"enabled\":true}'")
-        #expect(shell.invocations[7].command == "openclaw plugins enable feishu")
-        #expect(shell.invocations[8].command == "openclaw config set --json channels.feishu '{\"appId\":\"cli_test_id\",\"appSecret\":\"cli_test_secret\",\"domain\":\"lark\",\"enabled\":true}'")
-        #expect(shell.invocations[9].command == "openclaw gateway restart")
-        #expect(shell.invocations[10].command == "openclaw channels status --probe")
+        #expect(shell.invocations.count == 13)
+        #expect(shell.invocations[5].command == "openclaw plugins enable telegram")
+        #expect(shell.invocations[6].command == "openclaw config set --json channels.telegram '{\"botToken\":\"tg-bot-token\",\"enabled\":true}'")
+        #expect(shell.invocations[7].command == "openclaw plugins enable slack")
+        #expect(shell.invocations[8].command == "openclaw config set --json channels.slack '{\"appToken\":\"xapp-test\",\"botToken\":\"xoxb-test\",\"enabled\":true}'")
+        #expect(shell.invocations[9].command == "openclaw plugins enable feishu")
+        #expect(shell.invocations[10].command == "openclaw config set --json channels.feishu '{\"appId\":\"cli_test_id\",\"appSecret\":\"cli_test_secret\",\"domain\":\"lark\",\"enabled\":true}'")
+        #expect(shell.invocations[11].command == "openclaw gateway restart")
+        #expect(shell.invocations[12].command == "openclaw channels status --probe")
     }
 
     @Test

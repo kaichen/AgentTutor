@@ -134,6 +134,15 @@ extension SetupViewModel {
                 return
             }
 
+            if await shouldSkipOpenClawOnboard() {
+                openClawInstallStatus = .succeeded
+                navigationDirection = .forward
+                stage = .completion
+                userNotice = "OpenClaw onboarding already completed. Skipping initialization."
+                await logger.log(level: .info, message: "openclaw_setup_skipped_existing")
+                return
+            }
+
             if let failure = await runOpenClawOnboard(auth: onboardAuth, apiKey: onboardingAPIKey) {
                 await handleOpenClawFailure(failure)
                 return
@@ -204,6 +213,39 @@ extension SetupViewModel {
         }
 
         return nil
+    }
+
+    private func shouldSkipOpenClawOnboard() async -> Bool {
+        appendLog("Checking for existing OpenClaw installation...")
+        let binaryResult = await runOpenClawCommand(
+            "which openclaw",
+            timeoutSeconds: 20
+        )
+        guard binaryResult.exitCode == 0 else {
+            return false
+        }
+
+        appendLog("Checking existing OpenClaw gateway status...")
+        let gatewayStatusResult = await runOpenClawCommand(
+            "openclaw gateway status",
+            timeoutSeconds: 120
+        )
+        if gatewayStatusResult.exitCode != 0 {
+            return false
+        }
+
+        return isOpenClawGatewayHealthy(gatewayStatusResult.combinedOutput)
+    }
+
+    private func isOpenClawGatewayHealthy(_ output: String) -> Bool {
+        let loweredOutput = output.lowercased()
+        let unhealthySignals = ["not running", "down", "stopped", "inactive", "unhealthy", "failed", "error"]
+        if unhealthySignals.contains(where: { loweredOutput.contains($0) }) {
+            return false
+        }
+
+        let healthySignals = ["running", "normal", "healthy", "ready", "active", "ok"]
+        return healthySignals.contains(where: { loweredOutput.contains($0) })
     }
 
     private func runOpenClawOnboard(auth: OpenClawAuthConfiguration, apiKey: String) async -> OpenClawCommandFailure? {
