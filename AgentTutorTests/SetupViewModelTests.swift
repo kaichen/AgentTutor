@@ -1183,9 +1183,9 @@ struct SetupViewModelTests {
     @Test
     func queueRemediationCommandSetsState() {
         let vm = makeVM()
-        vm.queueRemediationCommand("brew doctor")
+        vm.queueRemediationCommand("echo remediation")
 
-        #expect(vm.pendingRemediationCommand == "brew doctor")
+        #expect(vm.pendingRemediationCommand == "echo remediation")
         #expect(vm.showingCommandConfirmation)
     }
 
@@ -1201,63 +1201,104 @@ struct SetupViewModelTests {
 
     @Test
     func executePendingRemediationRunsSafeCommand() async throws {
-        let vm = makeVM()
-        vm.pendingRemediationCommand = "brew doctor"
+        let shell = MockShellExecutor()
+        var launchedCommand: String?
+        let vm = SetupViewModel(
+            catalog: [],
+            shell: shell,
+            advisor: MockRemediationAdvisor(),
+            logger: InstallLogger(),
+            remediationCommandLauncher: { command in
+                launchedCommand = command
+                return true
+            }
+        )
+        vm.pendingRemediationCommand = "echo remediation-ok"
         vm.executePendingRemediationCommand()
 
-        try await Task.sleep(nanoseconds: 500_000_000)
+        try await Task.sleep(nanoseconds: 200_000_000)
 
-        #expect(vm.liveLog.contains("$ brew doctor"))
-        #expect(vm.userNotice.contains("succeeded") || vm.userNotice.contains("Unable to launch Terminal"))
+        #expect(shell.invocations.isEmpty)
+        #expect(launchedCommand == "echo remediation-ok")
+        #expect(vm.liveLog.contains("$ echo remediation-ok"))
+        #expect(vm.userNotice.contains("succeeded"))
     }
 
     @Test
-    func executePendingRemediationUsesSudoAskpassForSudoCommand() async throws {
-        let vm = makeVM()
-        vm.pendingRemediationCommand = "sudo brew doctor"
+    func executePendingRemediationHandlesAnotherSafeCommand() async throws {
+        var launchedCommand: String?
+        let vm = SetupViewModel(
+            catalog: [],
+            shell: MockShellExecutor(),
+            advisor: MockRemediationAdvisor(),
+            logger: InstallLogger(),
+            remediationCommandLauncher: { command in
+                launchedCommand = command
+                return true
+            }
+        )
+        vm.pendingRemediationCommand = "echo remediation-2"
         vm.executePendingRemediationCommand()
 
-        try await Task.sleep(nanoseconds: 500_000_000)
+        try await Task.sleep(nanoseconds: 200_000_000)
 
-        #expect(vm.liveLog.contains("$ sudo brew doctor"))
-        #expect(vm.userNotice.contains("succeeded") || vm.userNotice.contains("Unable to launch Terminal"))
+        #expect(launchedCommand == "echo remediation-2")
+        #expect(vm.liveLog.contains("$ echo remediation-2"))
+        #expect(vm.userNotice.contains("succeeded"))
     }
 
     @Test
     func executePendingRemediationReportsFailure() async throws {
-        let vm = makeVM()
-        vm.pendingRemediationCommand = "brew doctor"
+        let vm = SetupViewModel(
+            catalog: [],
+            shell: MockShellExecutor(),
+            advisor: MockRemediationAdvisor(),
+            logger: InstallLogger(),
+            remediationCommandLauncher: { _ in false }
+        )
+        vm.pendingRemediationCommand = "echo remediation-fail"
         vm.executePendingRemediationCommand()
 
-        try await Task.sleep(nanoseconds: 500_000_000)
+        try await Task.sleep(nanoseconds: 200_000_000)
 
-        #expect(vm.userNotice.contains("succeeded") || vm.userNotice.contains("Unable to launch Terminal"))
+        #expect(vm.liveLog.contains("$ echo remediation-fail"))
+        #expect(vm.userNotice.contains("Unable to launch Terminal"))
     }
 
     @Test
     func executePendingRemediationShowsAuthFailureNotice() async throws {
-        let vm = makeVM()
-        vm.pendingRemediationCommand = "sudo brew doctor"
+        let vm = SetupViewModel(
+            catalog: [],
+            shell: MockShellExecutor(),
+            advisor: MockRemediationAdvisor(),
+            logger: InstallLogger(),
+            remediationCommandLauncher: { _ in false }
+        )
+        vm.pendingRemediationCommand = "echo remediation-auth-check"
         vm.executePendingRemediationCommand()
 
-        try await Task.sleep(nanoseconds: 500_000_000)
+        try await Task.sleep(nanoseconds: 200_000_000)
 
         #expect(!vm.userNotice.contains("Administrator authentication was canceled or failed"))
     }
 
     @Test
     func executePendingRemediationSkipsEmptyCommand() {
-        let shell = MockShellExecutor()
+        var didLaunch = false
         let vm = SetupViewModel(
             catalog: [],
-            shell: shell,
+            shell: MockShellExecutor(),
             advisor: MockRemediationAdvisor(),
-            logger: InstallLogger()
+            logger: InstallLogger(),
+            remediationCommandLauncher: { _ in
+                didLaunch = true
+                return true
+            }
         )
         vm.pendingRemediationCommand = "  "
         vm.executePendingRemediationCommand()
 
-        #expect(shell.invocations.isEmpty)
+        #expect(!didLaunch)
     }
 
     // MARK: - Helpers

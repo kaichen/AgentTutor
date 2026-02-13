@@ -48,6 +48,7 @@ final class SetupViewModel: ObservableObject {
     let shell: ShellExecuting
     private let advisor: RemediationAdvising
     let gitSSHService: GitSSHServicing
+    private let remediationCommandLauncherOverride: ((String) -> Bool)?
     private var apiKeyValidationTask: Task<Void, Never>?
     private var brewPackageCache: BrewPackageCache?
     private var brewPackageCacheLoaded = false
@@ -70,13 +71,15 @@ final class SetupViewModel: ObservableObject {
         shell: ShellExecuting,
         advisor: RemediationAdvising,
         logger: InstallLogger,
-        gitSSHService: GitSSHServicing? = nil
+        gitSSHService: GitSSHServicing? = nil,
+        remediationCommandLauncher: ((String) -> Bool)? = nil
     ) {
         self.catalog = catalog
         self.shell = shell
         self.advisor = advisor
         self.logger = logger
         self.gitSSHService = gitSSHService ?? GitSSHService(shell: shell)
+        self.remediationCommandLauncherOverride = remediationCommandLauncher
         self.planner = InstallPlanner(catalog: catalog)
         self.selectedItemIDs = Set(catalog.filter { $0.defaultSelected || $0.isRequired }.map(\.id))
         ensureDependenciesAndRequireds()
@@ -263,7 +266,8 @@ final class SetupViewModel: ObservableObject {
                 message: "Running user-approved remediation command in Terminal",
                 metadata: ["command": command]
             )
-            let launched = launchRemediationCommandInSystemTerminal(command)
+            let launched = remediationCommandLauncherOverride?(command)
+                ?? launchRemediationCommandInSystemTerminal(command)
             appendLog("$ \(command)")
             if launched {
                 userNotice = "Remediation command succeeded. You can retry installation now."
