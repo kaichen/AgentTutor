@@ -39,6 +39,9 @@ extension SetupViewModel {
         sshKeyState = .checking
 
         Task {
+            var hasValidGitIdentity = false
+            var hasExistingSSHKey = false
+
             await logger.log(level: .info, message: "git_ssh_step_entered")
 
             let identityResult = await gitSSHService.readGlobalGitIdentity()
@@ -46,6 +49,7 @@ extension SetupViewModel {
             case let .success(identity):
                 gitUserName = identity.name
                 gitUserEmail = identity.email
+                hasValidGitIdentity = hasValidGitIdentity(from: identity)
             case let .failure(error):
                 gitConfigStatus = .failed(error.localizedDescription)
                 await logGitSSHFailure(error, fallbackAction: "read_git_identity")
@@ -55,6 +59,7 @@ extension SetupViewModel {
             switch keyResult {
             case let .success(material?):
                 sshKeyState = .existing(material)
+                hasExistingSSHKey = true
                 await logger.log(level: .info, message: "ssh_key_reused", metadata: ["public_key_path": material.publicKeyPath])
             case .success(nil):
                 sshKeyState = .missing
@@ -62,7 +67,21 @@ extension SetupViewModel {
                 sshKeyState = .failed(error.localizedDescription)
                 await logGitSSHFailure(error, fallbackAction: "read_ssh_key_state")
             }
+
+            guard stage == .gitSSH else { return }
+            if hasValidGitIdentity, hasExistingSSHKey, await hasAuthenticatedGitHubCLI() {
+                completeGitSSHStepAsAlreadyConfigured()
+                await logger.log(level: .info, message: "git_ssh_step_skipped_existing")
+            }
         }
+    }
+
+    private func completeGitSSHStepAsAlreadyConfigured() {
+        gitConfigStatus = .succeeded
+        githubUploadStatus = .succeeded
+        navigationDirection = .forward
+        stage = .openClaw
+        userNotice = "Git identity, GitHub login, and SSH key are already configured. Skipping Git/SSH setup."
     }
 
     func applyGitIdentity() {
@@ -245,6 +264,23 @@ extension SetupViewModel {
             return fallbackFromSystem
         }
         return "agenttutor@local"
+    }
+
+    private func hasValidGitIdentity(from identity: GitIdentity) -> Bool {
+        let name = identity.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let email = identity.email.trimmingCharacters(in: .whitespacesAndNewlines)
+        return !name.isEmpty && isValidEmail(email)
+    }
+
+    private func hasAuthenticatedGitHubCLI() async -> Bool {
+        appendLog("Checking GitHub CLI authentication...")
+        let result = await shell.run(
+            command: "gh auth status",
+            authMode: .standard,
+            timeoutSeconds: 20
+        )
+        appendLog(result.combinedOutput)
+        return result.exitCode == 0
     }
 
     private func isValidEmail(_ value: String) -> Bool {

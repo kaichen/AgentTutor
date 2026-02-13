@@ -678,6 +678,68 @@ struct SetupViewModelTests {
         #expect(vm.gitUserName == "Kai")
         #expect(vm.gitUserEmail == "kai@example.com")
         #expect(vm.sshKeyState == .existing(material))
+        #expect(vm.stage == .openClaw)
+        #expect(vm.gitConfigStatus == .succeeded)
+        #expect(vm.githubUploadStatus == .succeeded)
+    }
+
+    @Test
+    func prepareGitSSHStepSkipsWhenGitAndGithubReady() async throws {
+        let shell = MockShellExecutor(results: [
+            ShellExecutionResult(exitCode: 0, stdout: "Logged in to github.com account.", stderr: "", timedOut: false),
+        ])
+        let material = SSHKeyMaterial(
+            privateKeyPath: "/tmp/mock/id_ed25519",
+            publicKeyPath: "/tmp/mock/id_ed25519.pub",
+            publicKey: "ssh-ed25519 AAAAC3Nza...",
+            fingerprint: "256 SHA256:abc mock@example.com (ED25519)"
+        )
+        let gitSSHService = MockGitSSHService(
+            readGlobalGitIdentityResult: .success(GitIdentity(name: "Kai", email: "kai@example.com")),
+            loadExistingSSHKeyMaterialResult: .success(material)
+        )
+        let vm = SetupViewModel(
+            catalog: [],
+            shell: shell,
+            advisor: MockRemediationAdvisor(),
+            logger: InstallLogger(),
+            gitSSHService: gitSSHService
+        )
+        vm.stage = .gitSSH
+
+        vm.prepareGitSSHStep()
+        try await Task.sleep(nanoseconds: 200_000_000)
+
+        #expect(vm.stage == .openClaw)
+        #expect(vm.userNotice == "Git identity, GitHub login, and SSH key are already configured. Skipping Git/SSH setup.")
+        #expect(shell.invocations.count == 1)
+        #expect(shell.invocations[0].command == "gh auth status")
+    }
+
+    @Test
+    func prepareGitSSHStepDoesNotSkipWithoutGitHubLogin() async throws {
+        let shell = MockShellExecutor(results: [
+            ShellExecutionResult(exitCode: 1, stdout: "", stderr: "not logged in", timedOut: false),
+        ])
+        let gitSSHService = MockGitSSHService(
+            readGlobalGitIdentityResult: .success(GitIdentity(name: "Kai", email: "kai@example.com")),
+            loadExistingSSHKeyMaterialResult: .success(nil)
+        )
+        let vm = SetupViewModel(
+            catalog: [],
+            shell: shell,
+            advisor: MockRemediationAdvisor(),
+            logger: InstallLogger(),
+            gitSSHService: gitSSHService
+        )
+        vm.stage = .gitSSH
+
+        vm.prepareGitSSHStep()
+        try await Task.sleep(nanoseconds: 200_000_000)
+
+        #expect(vm.stage == .gitSSH)
+        #expect(vm.sshKeyState == .missing)
+        #expect(vm.gitConfigStatus == .idle)
     }
 
     @Test
