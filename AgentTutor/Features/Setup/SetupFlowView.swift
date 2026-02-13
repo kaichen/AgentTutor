@@ -24,9 +24,9 @@ struct SetupFlowView: View {
         }
         .padding(24)
         .frame(minWidth: 960, minHeight: 680)
-        .alert("Run remediation command?", isPresented: $viewModel.showingCommandConfirmation) {
+        .alert("Run remediation command in Terminal?", isPresented: $viewModel.showingCommandConfirmation) {
             Button("Cancel", role: .cancel) {}
-            Button("Run") {
+            Button("Open Terminal") {
                 viewModel.executePendingRemediationCommand()
             }
         } message: {
@@ -722,7 +722,7 @@ private struct FailureAdviceView: View {
                     Button {
                         onRun(command)
                     } label: {
-                        Label("Run", systemImage: "terminal")
+                        Label("Open Terminal", systemImage: "terminal")
                     }
                     .buttonStyle(.bordered)
                 }

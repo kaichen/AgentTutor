@@ -22,7 +22,6 @@ final class SetupViewModel: ObservableObject {
     @Published var userNotice: String = ""
     @Published var showingCommandConfirmation: Bool = false
     @Published var pendingRemediationCommand: String = ""
-    @Published var isRunningRemediationCommand: Bool = false
     @Published var apiKeyValidationStatus: APIKeyValidationStatus = .idle
     @Published var gitUserName: String = ""
     @Published var gitUserEmail: String = ""
@@ -53,6 +52,7 @@ final class SetupViewModel: ObservableObject {
     private var brewPackageCache: BrewPackageCache?
     private var brewPackageCacheLoaded = false
     var didPrepareGitSSHStep = false
+    private let terminalPathPrefix = "export PATH=\"/opt/homebrew/bin:/usr/local/bin:$PATH\"; "
 
     convenience init() {
         let shell = ShellExecutor()
@@ -255,33 +255,53 @@ final class SetupViewModel: ObservableObject {
             userNotice = "Blocked an unsafe command. Please review manually."
             return
         }
-        let authMode: CommandAuthMode = command.hasPrefix("sudo ") ? .sudoAskpass : .standard
-
-        isRunningRemediationCommand = true
         showingCommandConfirmation = false
 
         Task {
-            await logger.log(level: .warning, message: "Running user-approved remediation command", metadata: ["command": command])
-            let result = await shell.run(
-                command: command,
-                authMode: authMode,
-                timeoutSeconds: 900
+            await logger.log(
+                level: .warning,
+                message: "Running user-approved remediation command in Terminal",
+                metadata: ["command": command]
             )
-
+            let launched = launchRemediationCommandInSystemTerminal(command)
             appendLog("$ \(command)")
-            appendLog(result.combinedOutput)
-            await logger.log(level: result.exitCode == 0 ? .info : .error, message: "Remediation command finished", metadata: ["exit_code": String(result.exitCode)])
-
-            if result.exitCode == 0 {
+            if launched {
                 userNotice = "Remediation command succeeded. You can retry installation now."
-            } else if let authFailureMessage = adminAuthenticationFailureMessage(from: result.combinedOutput) {
-                userNotice = authFailureMessage
+                await logger.log(level: .info, message: "Remediation command launched in terminal", metadata: ["command": command])
             } else {
-                userNotice = "Remediation command failed. Check logs before retrying."
+                userNotice = "Unable to launch Terminal for remediation command."
+                await logger.log(level: .error, message: "Failed to launch terminal for remediation command", metadata: ["command": command])
             }
-
-            isRunningRemediationCommand = false
         }
+    }
+
+    private func launchRemediationCommandInSystemTerminal(_ command: String) -> Bool {
+        let script = systemTerminalScript(for: terminalPathPrefix + command)
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+        process.arguments = ["-e", script]
+
+        do {
+            try process.run()
+            process.waitUntilExit()
+            return process.terminationStatus == 0
+        } catch {
+            appendLog("Failed to launch Terminal: \(error.localizedDescription)")
+            return false
+        }
+    }
+
+    private func systemTerminalScript(for command: String) -> String {
+        let escaped = command
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+
+        return """
+        tell application "Terminal"
+            activate
+            do script "\(escaped)"
+        end tell
+        """
     }
 
     func openLogFolder() {
