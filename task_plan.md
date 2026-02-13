@@ -108,3 +108,20 @@ Optimize CLI/Cask installation verification by preloading Homebrew package inven
 - Verify CLI/Cask package presence via cached `brew list --formula` and `brew list --cask` results.
 - Fall back to command-based checks only when cache loading fails.
 - Invalidate cache after successful install command execution to keep post-install verification accurate.
+
+## 2026-02-12 Task: OpenClaw One-Click Initialization + Channel UI
+
+### Goal
+Implement the final OpenClaw setup phase: one-click non-interactive onboard (using selected LLM provider + API key) and UI-driven multi-channel configuration injection.
+
+### Phases
+1. [completed] Extend canonical setup models with OpenClaw provider/channel policy.
+2. [completed] Implement end-to-end OpenClaw execution chain (install -> onboard -> plugin enable -> config set -> gateway restart/probe).
+3. [completed] Add OpenClaw channel configuration UI (Telegram/Slack/Feishu).
+4. [completed] Add/update unit tests and run validation.
+
+### Decisions
+- Non-interactive onboarding is enforced with `--non-interactive --accept-risk --mode local`.
+- OpenAI provider is blocked for non-interactive OpenClaw onboard; supported providers remain OpenRouter/Kimi/MiniMax.
+- Channel configuration uses `openclaw config set --json channels.<name> ...` as the canonical write path.
+- Sensitive onboarding/channel commands are logged with redacted command/output to avoid key/token exposure.

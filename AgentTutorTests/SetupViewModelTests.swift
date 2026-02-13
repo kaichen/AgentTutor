@@ -715,16 +715,18 @@ struct SetupViewModelTests {
     }
 
     @Test
-    func installOpenClawStepSucceedsWhenPackagesMissing() async throws {
+    func installOpenClawStepSucceedsAndRunsNonInteractiveOnboard() async throws {
         let shell = MockShellExecutor(results: [
             // check: openclaw-cli missing
             ShellExecutionResult(exitCode: 1, stdout: "", stderr: "missing", timedOut: false),
-            // check: openclaw cask missing
-            ShellExecutionResult(exitCode: 1, stdout: "", stderr: "missing", timedOut: false),
             // install openclaw-cli
             ShellExecutionResult(exitCode: 0, stdout: "installed", stderr: "", timedOut: false),
+            // check: openclaw cask missing
+            ShellExecutionResult(exitCode: 1, stdout: "", stderr: "missing", timedOut: false),
             // install openclaw cask
             ShellExecutionResult(exitCode: 0, stdout: "installed", stderr: "", timedOut: false),
+            // onboard
+            ShellExecutionResult(exitCode: 0, stdout: "onboarded", stderr: "", timedOut: false),
         ])
         let vm = SetupViewModel(
             catalog: [],
@@ -733,25 +735,52 @@ struct SetupViewModelTests {
             logger: InstallLogger()
         )
         vm.stage = .openClaw
+        vm.apiProvider = .openrouter
+        vm.apiKey = "sk-openrouter-test"
 
         vm.installOpenClawStep()
         try await Task.sleep(nanoseconds: 500_000_000)
 
         #expect(vm.stage == .completion)
         #expect(vm.openClawInstallStatus == .succeeded)
-        #expect(shell.invocations.count == 4)
+        #expect(shell.invocations.count == 5)
         #expect(shell.invocations[0].command == "brew list openclaw-cli >/dev/null 2>&1")
-        #expect(shell.invocations[1].command == "brew list --cask openclaw >/dev/null 2>&1 || [ -d '/Applications/OpenClaw.app' ]")
-        #expect(shell.invocations[2].command == "brew install openclaw-cli")
+        #expect(shell.invocations[1].command == "brew install openclaw-cli")
+        #expect(shell.invocations[2].command == "brew list --cask openclaw >/dev/null 2>&1 || [ -d '/Applications/OpenClaw.app' ]")
         #expect(shell.invocations[3].command == "brew install --cask openclaw")
+        #expect(shell.invocations[4].command == "openclaw onboard --non-interactive --accept-risk --mode local --auth-choice openrouter-api-key --openrouter-api-key 'sk-openrouter-test'")
+    }
+
+    @Test
+    func installOpenClawStepFailsFastWhenProviderNotSupported() {
+        let shell = MockShellExecutor()
+        let vm = SetupViewModel(
+            catalog: [],
+            shell: shell,
+            advisor: MockRemediationAdvisor(),
+            logger: InstallLogger()
+        )
+        vm.stage = .openClaw
+        vm.apiProvider = .openai
+        vm.apiKey = "sk-openai-test"
+
+        vm.installOpenClawStep()
+
+        #expect(vm.stage == .openClaw)
+        #expect(vm.openClawValidationErrors.contains(where: { $0.contains("not supported") }))
+        #expect(shell.invocations.isEmpty)
+        switch vm.openClawInstallStatus {
+        case .failed:
+            break
+        default:
+            Issue.record("Expected openClawInstallStatus to be failed")
+        }
     }
 
     @Test
     func installOpenClawStepFailsAndStaysOnOpenClawStage() async throws {
         let shell = MockShellExecutor(results: [
             // check: openclaw-cli missing
-            ShellExecutionResult(exitCode: 1, stdout: "", stderr: "missing", timedOut: false),
-            // check: openclaw cask missing
             ShellExecutionResult(exitCode: 1, stdout: "", stderr: "missing", timedOut: false),
             // install openclaw-cli fails
             ShellExecutionResult(exitCode: 1, stdout: "", stderr: "failed", timedOut: false),
@@ -763,6 +792,8 @@ struct SetupViewModelTests {
             logger: InstallLogger()
         )
         vm.stage = .openClaw
+        vm.apiProvider = .openrouter
+        vm.apiKey = "sk-openrouter-test"
 
         vm.installOpenClawStep()
         try await Task.sleep(nanoseconds: 500_000_000)
@@ -775,7 +806,70 @@ struct SetupViewModelTests {
         default:
             Issue.record("Expected openClawInstallStatus to be failed")
         }
-        #expect(shell.invocations.count == 3)
+        #expect(shell.invocations.count == 2)
+    }
+
+    @Test
+    func installOpenClawStepAppliesSelectedChannelConfigs() async throws {
+        let shell = MockShellExecutor(results: [
+            // check: openclaw-cli
+            ShellExecutionResult(exitCode: 0, stdout: "installed", stderr: "", timedOut: false),
+            // check: openclaw cask
+            ShellExecutionResult(exitCode: 0, stdout: "installed", stderr: "", timedOut: false),
+            // onboard
+            ShellExecutionResult(exitCode: 0, stdout: "ok", stderr: "", timedOut: false),
+            // enable telegram
+            ShellExecutionResult(exitCode: 0, stdout: "ok", stderr: "", timedOut: false),
+            // config telegram
+            ShellExecutionResult(exitCode: 0, stdout: "ok", stderr: "", timedOut: false),
+            // enable slack
+            ShellExecutionResult(exitCode: 0, stdout: "ok", stderr: "", timedOut: false),
+            // config slack
+            ShellExecutionResult(exitCode: 0, stdout: "ok", stderr: "", timedOut: false),
+            // enable feishu
+            ShellExecutionResult(exitCode: 0, stdout: "ok", stderr: "", timedOut: false),
+            // config feishu
+            ShellExecutionResult(exitCode: 0, stdout: "ok", stderr: "", timedOut: false),
+            // restart gateway
+            ShellExecutionResult(exitCode: 0, stdout: "ok", stderr: "", timedOut: false),
+            // probe channels
+            ShellExecutionResult(exitCode: 0, stdout: "ok", stderr: "", timedOut: false),
+        ])
+        let vm = SetupViewModel(
+            catalog: [],
+            shell: shell,
+            advisor: MockRemediationAdvisor(),
+            logger: InstallLogger()
+        )
+        vm.stage = .openClaw
+        vm.apiProvider = .openrouter
+        vm.apiKey = "sk-openrouter-test"
+
+        vm.setOpenClawChannel(.telegram, selected: true)
+        vm.openClawTelegramBotToken = "tg-bot-token"
+        vm.setOpenClawChannel(.slack, selected: true)
+        vm.openClawSlackMode = .socket
+        vm.openClawSlackBotToken = "xoxb-test"
+        vm.openClawSlackAppToken = "xapp-test"
+        vm.setOpenClawChannel(.feishu, selected: true)
+        vm.openClawFeishuAppID = "cli_test_id"
+        vm.openClawFeishuAppSecret = "cli_test_secret"
+        vm.openClawFeishuDomain = .lark
+
+        vm.installOpenClawStep()
+        try await Task.sleep(nanoseconds: 500_000_000)
+
+        #expect(vm.stage == .completion)
+        #expect(vm.openClawInstallStatus == .succeeded)
+        #expect(shell.invocations.count == 11)
+        #expect(shell.invocations[3].command == "openclaw plugins enable telegram")
+        #expect(shell.invocations[4].command == "openclaw config set --json channels.telegram '{\"botToken\":\"tg-bot-token\",\"enabled\":true}'")
+        #expect(shell.invocations[5].command == "openclaw plugins enable slack")
+        #expect(shell.invocations[6].command == "openclaw config set --json channels.slack '{\"appToken\":\"xapp-test\",\"botToken\":\"xoxb-test\",\"enabled\":true}'")
+        #expect(shell.invocations[7].command == "openclaw plugins enable feishu")
+        #expect(shell.invocations[8].command == "openclaw config set --json channels.feishu '{\"appId\":\"cli_test_id\",\"appSecret\":\"cli_test_secret\",\"domain\":\"lark\",\"enabled\":true}'")
+        #expect(shell.invocations[9].command == "openclaw gateway restart")
+        #expect(shell.invocations[10].command == "openclaw channels status --probe")
     }
 
     @Test

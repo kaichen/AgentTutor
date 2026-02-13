@@ -79,3 +79,29 @@
   - `SetupViewModelTests.startInstallUsesSingleBrewCacheForAllBrewPackageChecks`
 - Validation status:
   - `./Scripts/test.sh --unit` ✅
+
+## 2026-02-12 (OpenClaw one-click onboarding + channel UI)
+- Extended setup models for OpenClaw policy and channel types:
+  - `LLMProvider.openClawOnboardAuth` mapping
+  - `OpenClawChannel`, `OpenClawSlackMode`, `OpenClawFeishuDomain`
+- Added OpenClaw setup state to `SetupViewModel`:
+  - channel selection set + Telegram/Slack/Feishu credential fields
+- Reworked OpenClaw execution flow in `SetupViewModel+OpenClaw.swift`:
+  - install checks/install commands
+  - non-interactive onboard command using selected provider + API key
+  - per-channel plugin enable + `config set --json`
+  - `gateway restart` + `channels status --probe`
+  - fail-fast validation and error handling
+  - redacted command/output logging for sensitive commands
+- Upgraded `OpenClawSetupView`:
+  - provider support status
+  - channel selection and config forms (Telegram/Slack/Feishu)
+  - validation panel and updated status messaging
+- Updated footer primary action text in `SetupFlowView` from install wording to initialize wording.
+- Added/updated tests in `SetupViewModelTests`:
+  - `installOpenClawStepSucceedsAndRunsNonInteractiveOnboard`
+  - `installOpenClawStepFailsFastWhenProviderNotSupported`
+  - `installOpenClawStepAppliesSelectedChannelConfigs`
+  - adjusted failure-path expectations for new command ordering
+- Validation status:
+  - `./Scripts/test.sh --unit` ✅

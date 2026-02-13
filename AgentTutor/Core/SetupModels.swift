@@ -115,6 +115,82 @@ enum LLMProvider: String, CaseIterable, Identifiable, Codable, Sendable {
             return "sk-..."
         }
     }
+
+    var openClawOnboardAuth: OpenClawAuthConfiguration? {
+        switch self {
+        case .openai:
+            return nil
+        case .openrouter:
+            return OpenClawAuthConfiguration(
+                choice: "openrouter-api-key",
+                apiKeyFlag: "--openrouter-api-key"
+            )
+        case .kimi:
+            return OpenClawAuthConfiguration(
+                choice: "kimi-code-api-key",
+                apiKeyFlag: "--kimi-code-api-key"
+            )
+        case .minimax:
+            return OpenClawAuthConfiguration(
+                choice: "minimax-api",
+                apiKeyFlag: "--minimax-api-key"
+            )
+        }
+    }
+
+    var supportsOpenClawNonInteractiveOnboard: Bool {
+        openClawOnboardAuth != nil
+    }
+}
+
+struct OpenClawAuthConfiguration: Equatable, Sendable {
+    let choice: String
+    let apiKeyFlag: String
+}
+
+enum OpenClawChannel: String, CaseIterable, Identifiable, Codable, Sendable {
+    case telegram
+    case slack
+    case feishu
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .telegram:
+            return "Telegram"
+        case .slack:
+            return "Slack"
+        case .feishu:
+            return "Feishu / Lark"
+        }
+    }
+
+    var pluginName: String { rawValue }
+    var configPath: String { "channels.\(rawValue)" }
+}
+
+enum OpenClawSlackMode: String, CaseIterable, Identifiable, Codable, Sendable {
+    case socket
+    case http
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .socket:
+            return "Socket Mode"
+        case .http:
+            return "HTTP Mode"
+        }
+    }
+}
+
+enum OpenClawFeishuDomain: String, CaseIterable, Identifiable, Codable, Sendable {
+    case feishu
+    case lark
+
+    var id: String { rawValue }
 }
 
 enum InstallCategory: String, CaseIterable, Codable, Sendable {

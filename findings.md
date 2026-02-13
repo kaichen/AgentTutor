@@ -54,3 +54,9 @@
   - `brew list --cask`
 - CLI/Cask verification can be mapped to a stable package identity (`formula`/`cask` + package name) and validated against cached inventory sets.
 - Cache invalidation is required after successful install commands, otherwise post-install verification may read stale package state.
+
+## 2026-02-12 OpenClaw init + channel configuration findings
+- OpenClaw non-interactive onboard must include `--non-interactive --accept-risk` and cannot use OAuth in this mode.
+- Current product provider list includes `OpenAI`, but non-interactive OpenClaw onboard supports only API-key providers (`OpenRouter`, `Kimi`, `MiniMax` in current UI scope), so provider compatibility must be validated before running commands.
+- Channel setup is best implemented with direct `openclaw plugins enable <channel>` + `openclaw config set --json channels.<channel> <json>` rather than manual file writes, which keeps a single canonical command path.
+- Secrets can leak through command logging if commands are echoed directly; redacted command/output handling is required for onboarding and channel config commands.

@@ -30,6 +30,15 @@ final class SetupViewModel: ObservableObject {
     @Published var sshKeyState: SSHKeyState = .checking
     @Published var githubUploadStatus: ActionStatus = .idle
     @Published var openClawInstallStatus: ActionStatus = .idle
+    @Published var openClawSelectedChannels: Set<OpenClawChannel> = []
+    @Published var openClawTelegramBotToken: String = ""
+    @Published var openClawSlackBotToken: String = ""
+    @Published var openClawSlackAppToken: String = ""
+    @Published var openClawSlackMode: OpenClawSlackMode = .socket
+    @Published var openClawSlackSigningSecret: String = ""
+    @Published var openClawFeishuAppID: String = ""
+    @Published var openClawFeishuAppSecret: String = ""
+    @Published var openClawFeishuDomain: OpenClawFeishuDomain = .feishu
     @Published private(set) var installStartTime: Date?
     @Published private(set) var installEndTime: Date?
 

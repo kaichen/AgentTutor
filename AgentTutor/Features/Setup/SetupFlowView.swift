@@ -129,13 +129,13 @@ struct SetupFlowView: View {
     private var openClawPrimaryButtonTitle: String {
         switch viewModel.openClawInstallStatus {
         case .idle:
-            return "Install OpenClaw"
+            return "Initialize OpenClaw"
         case .running:
-            return "Installing..."
+            return "Initializing..."
         case .succeeded:
-            return "Install OpenClaw"
+            return "Initialize OpenClaw"
         case .failed:
-            return "Retry Install"
+            return "Retry Initialize"
         }
     }
 }
