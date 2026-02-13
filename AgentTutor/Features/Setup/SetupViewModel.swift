@@ -29,6 +29,10 @@ final class SetupViewModel: ObservableObject {
     @Published var sshKeyState: SSHKeyState = .checking
     @Published var githubUploadStatus: ActionStatus = .idle
     @Published var openClawInstallStatus: ActionStatus = .idle
+    @Published var openClawExistingInstallDetected = false
+    @Published var isCheckingOpenClawExistingInstall = false
+    @Published var openClawPrecheckCompleted = false
+    @Published var openClawConfiguredChannels: Set<OpenClawChannel> = []
     @Published var openClawSelectedChannels: Set<OpenClawChannel> = []
     @Published var openClawTelegramBotToken: String = ""
     @Published var openClawSlackBotToken: String = ""
@@ -50,6 +54,7 @@ final class SetupViewModel: ObservableObject {
     let gitSSHService: GitSSHServicing
     private let remediationCommandLauncherOverride: ((String) -> Bool)?
     private var apiKeyValidationTask: Task<Void, Never>?
+    var openClawInstallDetectionTask: Task<Void, Never>?
     private var brewPackageCache: BrewPackageCache?
     private var brewPackageCacheLoaded = false
     var didPrepareGitSSHStep = false
@@ -178,6 +183,11 @@ final class SetupViewModel: ObservableObject {
         gitConfigStatus = .idle
         githubUploadStatus = .idle
         openClawInstallStatus = .idle
+        openClawExistingInstallDetected = false
+        isCheckingOpenClawExistingInstall = false
+        openClawPrecheckCompleted = false
+        openClawConfiguredChannels = []
+        openClawInstallDetectionTask?.cancel()
         sshKeyState = .checking
         didPrepareGitSSHStep = false
         navigationDirection = .forward

@@ -16,6 +16,9 @@ struct OpenClawSetupView: View {
             .frame(maxWidth: .infinity, alignment: .topLeading)
             .padding(.vertical, 4)
         }
+        .onAppear {
+            viewModel.refreshOpenClawExistingInstallStatus()
+        }
     }
 
     private var headerSection: some View {
@@ -78,8 +81,21 @@ struct OpenClawSetupView: View {
                 .font(.footnote)
                 .foregroundStyle(.secondary)
 
+            if !configuredChannels.isEmpty {
+                Label("Detected existing channel configuration. Existing channel settings are read-only.", systemImage: "lock.fill")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                ForEach(configuredChannels) { channel in
+                    Label("\(channel.displayName) already configured", systemImage: "checkmark.seal.fill")
+                        .font(.caption)
+                        .foregroundStyle(.green)
+                }
+            }
+
             channelToggle(.telegram)
-            if viewModel.isOpenClawChannelSelected(.telegram) {
+            if viewModel.isOpenClawChannelConfigured(.telegram) {
+                readOnlyChannelNotice("Telegram")
+            } else if viewModel.isOpenClawChannelSelected(.telegram) {
                 SecureField("Telegram Bot Token", text: $viewModel.openClawTelegramBotToken)
                     .textFieldStyle(.roundedBorder)
             }
@@ -87,7 +103,9 @@ struct OpenClawSetupView: View {
             Divider()
 
             channelToggle(.slack)
-            if viewModel.isOpenClawChannelSelected(.slack) {
+            if viewModel.isOpenClawChannelConfigured(.slack) {
+                readOnlyChannelNotice("Slack")
+            } else if viewModel.isOpenClawChannelSelected(.slack) {
                 Picker("Slack Mode", selection: $viewModel.openClawSlackMode) {
                     ForEach(OpenClawSlackMode.allCases) { mode in
                         Text(mode.displayName).tag(mode)
@@ -111,7 +129,9 @@ struct OpenClawSetupView: View {
             Divider()
 
             channelToggle(.feishu)
-            if viewModel.isOpenClawChannelSelected(.feishu) {
+            if viewModel.isOpenClawChannelConfigured(.feishu) {
+                readOnlyChannelNotice("Feishu / Lark")
+            } else if viewModel.isOpenClawChannelSelected(.feishu) {
                 TextField("Feishu App ID", text: $viewModel.openClawFeishuAppID)
                     .textFieldStyle(.roundedBorder)
                 SecureField("Feishu App Secret", text: $viewModel.openClawFeishuAppSecret)
@@ -150,13 +170,36 @@ struct OpenClawSetupView: View {
 
     private func channelToggle(_ channel: OpenClawChannel) -> some View {
         Toggle(
-            channel.displayName,
             isOn: Binding(
                 get: { viewModel.isOpenClawChannelSelected(channel) },
                 set: { viewModel.setOpenClawChannel(channel, selected: $0) }
             )
-        )
+        ) {
+            HStack(spacing: 8) {
+                Text(channel.displayName)
+                if viewModel.isOpenClawChannelConfigured(channel) {
+                    Text("Configured")
+                        .font(.caption2)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.green)
+                    Image(systemName: "lock.fill")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
         .toggleStyle(.checkbox)
+        .disabled(viewModel.isOpenClawChannelConfigured(channel))
+    }
+
+    private func readOnlyChannelNotice(_ channelName: String) -> some View {
+        Label("\(channelName) is already configured in OpenClaw. Editing existing settings is not supported.", systemImage: "lock.fill")
+            .font(.caption)
+            .foregroundStyle(.secondary)
+    }
+
+    private var configuredChannels: [OpenClawChannel] {
+        OpenClawChannel.allCases.filter { viewModel.isOpenClawChannelConfigured($0) }
     }
 
     private func commandSnippet(_ command: String) -> some View {
@@ -181,8 +224,20 @@ struct OpenClawSetupView: View {
 
             switch viewModel.openClawInstallStatus {
             case .idle:
-                Text("Ready to initialize OpenClaw.")
-                    .foregroundStyle(.secondary)
+                if viewModel.isCheckingOpenClawExistingInstall {
+                    HStack(spacing: 8) {
+                        ProgressView()
+                            .controlSize(.small)
+                        Text("Checking existing OpenClaw installation...")
+                            .foregroundStyle(.secondary)
+                    }
+                } else if viewModel.openClawExistingInstallDetected {
+                    Label("OpenClaw is already installed (gateway healthy).", systemImage: "checkmark.circle.fill")
+                        .foregroundStyle(.green)
+                } else {
+                    Text("Ready to initialize OpenClaw.")
+                        .foregroundStyle(.secondary)
+                }
             case .running:
                 HStack(spacing: 8) {
                     ProgressView()

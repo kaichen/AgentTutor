@@ -28,11 +28,51 @@ extension SetupViewModel {
         let domain: String
     }
 
+    private struct TelegramChannelConfigSnapshot: Decodable {
+        let enabled: Bool?
+        let botToken: String?
+    }
+
+    private struct SlackChannelConfigSnapshot: Decodable {
+        let enabled: Bool?
+        let botToken: String?
+        let appToken: String?
+        let mode: String?
+        let signingSecret: String?
+    }
+
+    private struct FeishuChannelConfigSnapshot: Decodable {
+        let enabled: Bool?
+        let appId: String?
+        let appSecret: String?
+        let domain: String?
+    }
+
     var canInstallOpenClaw: Bool {
         if case .running = openClawInstallStatus {
             return false
         }
+        if isCheckingOpenClawExistingInstall || !openClawPrecheckCompleted {
+            return false
+        }
         return openClawValidationErrors.isEmpty
+    }
+
+    var canSkipOpenClawStep: Bool {
+        !isCheckingOpenClawExistingInstall && openClawPrecheckCompleted
+    }
+
+    var shouldShowOpenClawInitializeButton: Bool {
+        guard stage == .openClaw else {
+            return false
+        }
+        if case .idle = openClawInstallStatus,
+           openClawPrecheckCompleted,
+           !isCheckingOpenClawExistingInstall,
+           openClawExistingInstallDetected {
+            return false
+        }
+        return true
     }
 
     var openClawValidationErrors: [String] {
@@ -45,29 +85,31 @@ extension SetupViewModel {
         if !apiProvider.supportsOpenClawNonInteractiveOnboard {
             errors.append("Provider \(apiProvider.displayName) from API Key step is not supported for non-interactive OpenClaw onboarding.")
         }
-        if openClawSelectedChannels.contains(.telegram) && normalizedOpenClawValue(openClawTelegramBotToken).isEmpty {
+        if openClawSelectedChannels.contains(.telegram),
+           !isOpenClawChannelConfigured(.telegram),
+           normalizedOpenClawValue(openClawTelegramBotToken).isEmpty {
             errors.append("Telegram bot token is required.")
         }
         if openClawSelectedChannels.contains(.slack) {
-            if normalizedOpenClawValue(openClawSlackBotToken).isEmpty {
+            if !isOpenClawChannelConfigured(.slack), normalizedOpenClawValue(openClawSlackBotToken).isEmpty {
                 errors.append("Slack bot token is required.")
             }
             switch openClawSlackMode {
             case .socket:
-                if normalizedOpenClawValue(openClawSlackAppToken).isEmpty {
+                if !isOpenClawChannelConfigured(.slack), normalizedOpenClawValue(openClawSlackAppToken).isEmpty {
                     errors.append("Slack app token is required for Socket mode.")
                 }
             case .http:
-                if normalizedOpenClawValue(openClawSlackSigningSecret).isEmpty {
+                if !isOpenClawChannelConfigured(.slack), normalizedOpenClawValue(openClawSlackSigningSecret).isEmpty {
                     errors.append("Slack signing secret is required for HTTP mode.")
                 }
             }
         }
         if openClawSelectedChannels.contains(.feishu) {
-            if normalizedOpenClawValue(openClawFeishuAppID).isEmpty {
+            if !isOpenClawChannelConfigured(.feishu), normalizedOpenClawValue(openClawFeishuAppID).isEmpty {
                 errors.append("Feishu app ID is required.")
             }
-            if normalizedOpenClawValue(openClawFeishuAppSecret).isEmpty {
+            if !isOpenClawChannelConfigured(.feishu), normalizedOpenClawValue(openClawFeishuAppSecret).isEmpty {
                 errors.append("Feishu app secret is required.")
             }
         }
@@ -90,7 +132,15 @@ extension SetupViewModel {
         openClawSelectedChannels.contains(channel)
     }
 
+    func isOpenClawChannelConfigured(_ channel: OpenClawChannel) -> Bool {
+        openClawConfiguredChannels.contains(channel)
+    }
+
     func setOpenClawChannel(_ channel: OpenClawChannel, selected: Bool) {
+        guard !isOpenClawChannelConfigured(channel) else {
+            openClawSelectedChannels.insert(channel)
+            return
+        }
         if selected {
             openClawSelectedChannels.insert(channel)
         } else {
@@ -98,9 +148,50 @@ extension SetupViewModel {
         }
     }
 
+    func refreshOpenClawExistingInstallStatus() {
+        guard stage == .openClaw else { return }
+        if case .running = openClawInstallStatus {
+            return
+        }
+        guard !isCheckingOpenClawExistingInstall else {
+            return
+        }
+
+        openClawInstallDetectionTask?.cancel()
+        openClawPrecheckCompleted = false
+        isCheckingOpenClawExistingInstall = true
+        openClawInstallDetectionTask = Task {
+            defer {
+                isCheckingOpenClawExistingInstall = false
+                openClawInstallDetectionTask = nil
+                if !Task.isCancelled {
+                    openClawPrecheckCompleted = true
+                }
+            }
+            let isInstalled = await hasHealthyOpenClawGateway()
+            guard !Task.isCancelled else { return }
+            openClawExistingInstallDetected = isInstalled
+            if isInstalled {
+                let configuredChannels = await detectConfiguredOpenClawChannels()
+                guard !Task.isCancelled else { return }
+                let previouslyConfiguredChannels = openClawConfiguredChannels
+                openClawConfiguredChannels = configuredChannels
+                openClawSelectedChannels.subtract(previouslyConfiguredChannels.subtracting(configuredChannels))
+                openClawSelectedChannels.formUnion(configuredChannels)
+                return
+            }
+            openClawSelectedChannels.subtract(openClawConfiguredChannels)
+            openClawConfiguredChannels = []
+        }
+    }
+
     func installOpenClawStep() {
         guard stage == .openClaw else { return }
         if case .running = openClawInstallStatus {
+            return
+        }
+        guard !isCheckingOpenClawExistingInstall, openClawPrecheckCompleted else {
+            userNotice = "OpenClaw environment check is not complete yet. Please wait."
             return
         }
 
@@ -165,6 +256,10 @@ extension SetupViewModel {
 
     func skipOpenClawStep() {
         guard stage == .openClaw else { return }
+        guard canSkipOpenClawStep else {
+            userNotice = "OpenClaw environment check is not complete yet. Please wait."
+            return
+        }
         navigationDirection = .forward
         stage = .completion
         userNotice = "Skipped OpenClaw setup."
@@ -216,12 +311,18 @@ extension SetupViewModel {
     }
 
     private func shouldSkipOpenClawOnboard() async -> Bool {
-        appendLog("Checking for existing OpenClaw installation...")
-        let binaryResult = await runOpenClawCommand(
-            "which openclaw",
+        let isInstalled = await hasHealthyOpenClawGateway()
+        openClawExistingInstallDetected = isInstalled
+        return isInstalled
+    }
+
+    private func hasHealthyOpenClawGateway() async -> Bool {
+        appendLog("Checking OpenClaw process...")
+        let processResult = await runOpenClawCommand(
+            "pgrep -f '[o]penclaw' >/dev/null 2>&1",
             timeoutSeconds: 20
         )
-        guard binaryResult.exitCode == 0 else {
+        guard processResult.exitCode == 0 else {
             return false
         }
 
@@ -230,7 +331,7 @@ extension SetupViewModel {
             "openclaw gateway status",
             timeoutSeconds: 120
         )
-        if gatewayStatusResult.exitCode != 0 {
+        guard gatewayStatusResult.exitCode == 0 else {
             return false
         }
 
@@ -280,9 +381,15 @@ extension SetupViewModel {
     }
 
     private func configureOpenClawChannelsIfNeeded() async -> OpenClawCommandFailure? {
-        let selectedChannels = OpenClawChannel.allCases.filter { openClawSelectedChannels.contains($0) }
+        let selectedChannels = OpenClawChannel.allCases.filter {
+            openClawSelectedChannels.contains($0) && !isOpenClawChannelConfigured($0)
+        }
         guard !selectedChannels.isEmpty else {
-            appendLog("No channels selected. Skipping channel configuration.")
+            if openClawSelectedChannels.isEmpty {
+                appendLog("No channels selected. Skipping channel configuration.")
+            } else {
+                appendLog("Selected channels are already configured. Existing channel settings are read-only and were not modified.")
+            }
             return nil
         }
 
@@ -362,6 +469,129 @@ extension SetupViewModel {
         }
 
         return nil
+    }
+
+    private func detectConfiguredOpenClawChannels() async -> Set<OpenClawChannel> {
+        let configuredFromConfig = await detectConfiguredOpenClawChannelsFromConfig()
+        let configuredFromStatus = await detectConfiguredOpenClawChannelsFromStatus()
+        return configuredFromConfig.union(configuredFromStatus)
+    }
+
+    private func detectConfiguredOpenClawChannelsFromConfig() async -> Set<OpenClawChannel> {
+        var configuredChannels: Set<OpenClawChannel> = []
+
+        for channel in OpenClawChannel.allCases {
+            let command = "openclaw config get --json \(channel.configPath)"
+            let result = await runOpenClawCommand(
+                command,
+                redactedCommand: command,
+                timeoutSeconds: 120,
+                containsSensitiveData: true
+            )
+            guard result.exitCode == 0 else {
+                continue
+            }
+            if isOpenClawChannelConfiguredFromConfig(channel, output: result.stdout) {
+                configuredChannels.insert(channel)
+            }
+        }
+
+        return configuredChannels
+    }
+
+    private func detectConfiguredOpenClawChannelsFromStatus() async -> Set<OpenClawChannel> {
+        let statusResult = await runOpenClawCommand(
+            "openclaw channels status --probe",
+            timeoutSeconds: 120
+        )
+        guard statusResult.exitCode == 0 else {
+            return []
+        }
+
+        let output = statusResult.combinedOutput.lowercased()
+        let healthyTokens = ["enabled", "ready", "running", "connected", "healthy", "active", "ok"]
+        let unhealthyTokens = ["disabled", "not configured", "unconfigured", "missing", "error", "failed", "down", "inactive", "stopped"]
+        var configuredChannels: Set<OpenClawChannel> = []
+
+        for channel in OpenClawChannel.allCases {
+            let linesForChannel = output
+                .split(whereSeparator: \.isNewline)
+                .filter { $0.contains(channel.rawValue) }
+            guard !linesForChannel.isEmpty else {
+                continue
+            }
+
+            let mergedLine = linesForChannel.map(String.init).joined(separator: " ")
+            if unhealthyTokens.contains(where: { mergedLine.contains($0) }) {
+                continue
+            }
+            if healthyTokens.contains(where: { mergedLine.contains($0) }) {
+                configuredChannels.insert(channel)
+            }
+        }
+
+        return configuredChannels
+    }
+
+    private func isOpenClawChannelConfiguredFromConfig(_ channel: OpenClawChannel, output: String) -> Bool {
+        switch channel {
+        case .telegram:
+            guard let config: TelegramChannelConfigSnapshot = decodeOpenClawChannelConfig(from: output) else {
+                return false
+            }
+            guard config.enabled == true else {
+                return false
+            }
+            return !(config.botToken?.isEmpty ?? true)
+        case .slack:
+            guard let config: SlackChannelConfigSnapshot = decodeOpenClawChannelConfig(from: output) else {
+                return false
+            }
+            guard config.enabled == true else {
+                return false
+            }
+            guard !(config.botToken?.isEmpty ?? true) else {
+                return false
+            }
+            if !(config.appToken?.isEmpty ?? true) {
+                return true
+            }
+            if !(config.signingSecret?.isEmpty ?? true) {
+                return true
+            }
+            return config.mode?.lowercased() != "http"
+        case .feishu:
+            guard let config: FeishuChannelConfigSnapshot = decodeOpenClawChannelConfig(from: output) else {
+                return false
+            }
+            guard config.enabled == true else {
+                return false
+            }
+            return !(config.appId?.isEmpty ?? true) &&
+                !(config.appSecret?.isEmpty ?? true) &&
+                !(config.domain?.isEmpty ?? true)
+        }
+    }
+
+    private func decodeOpenClawChannelConfig<T: Decodable>(from output: String) -> T? {
+        guard let payload = openClawJSONPayload(from: output),
+              let data = payload.data(using: .utf8) else {
+            return nil
+        }
+        return try? JSONDecoder().decode(T.self, from: data)
+    }
+
+    private func openClawJSONPayload(from output: String) -> String? {
+        let trimmed = output.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.first == "{", trimmed.last == "}" {
+            return trimmed
+        }
+        guard let firstBrace = trimmed.firstIndex(of: "{"),
+              let lastBrace = trimmed.lastIndex(of: "}"),
+              firstBrace <= lastBrace else {
+            return nil
+        }
+        return String(trimmed[firstBrace...lastBrace])
     }
 
     private func openClawChannelConfigJSON(for channel: OpenClawChannel) -> String? {

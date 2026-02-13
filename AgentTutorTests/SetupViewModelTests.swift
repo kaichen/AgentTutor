@@ -769,11 +769,147 @@ struct SetupViewModelTests {
     func skipOpenClawStepTransitionsToCompletion() {
         let vm = makeVM()
         vm.stage = .openClaw
+        vm.openClawPrecheckCompleted = true
 
         vm.skipOpenClawStep()
 
         #expect(vm.stage == .completion)
         #expect(vm.userNotice.contains("Skipped"))
+    }
+
+    @Test
+    func skipOpenClawStepDoesNotAdvanceWhenPrecheckNotCompleted() {
+        let vm = makeVM()
+        vm.stage = .openClaw
+        vm.openClawPrecheckCompleted = false
+
+        vm.skipOpenClawStep()
+
+        #expect(vm.stage == .openClaw)
+        #expect(vm.userNotice.contains("check is not complete"))
+    }
+
+    @Test
+    func shouldHideOpenClawInitializeButtonWhenExistingInstallDetected() {
+        let vm = makeVM()
+        vm.stage = .openClaw
+        vm.openClawInstallStatus = .idle
+        vm.openClawPrecheckCompleted = true
+        vm.isCheckingOpenClawExistingInstall = false
+        vm.openClawExistingInstallDetected = true
+
+        #expect(!vm.shouldShowOpenClawInitializeButton)
+    }
+
+    @Test
+    func shouldShowOpenClawInitializeButtonWhenExistingInstallNotDetected() {
+        let vm = makeVM()
+        vm.stage = .openClaw
+        vm.openClawInstallStatus = .idle
+        vm.openClawPrecheckCompleted = true
+        vm.isCheckingOpenClawExistingInstall = false
+        vm.openClawExistingInstallDetected = false
+
+        #expect(vm.shouldShowOpenClawInitializeButton)
+    }
+
+    @Test
+    func refreshOpenClawExistingInstallStatusMarksInstalledAndLoadsConfiguredChannels() async throws {
+        let shell = MockShellExecutor(results: [
+            // openclaw process exists
+            ShellExecutionResult(exitCode: 0, stdout: "1234", stderr: "", timedOut: false),
+            // openclaw gateway status healthy
+            ShellExecutionResult(exitCode: 0, stdout: "Gateway is running and healthy", stderr: "", timedOut: false),
+            // telegram config
+            ShellExecutionResult(exitCode: 0, stdout: "{\"enabled\":true,\"botToken\":\"tg-bot-token\"}", stderr: "", timedOut: false),
+            // slack config
+            ShellExecutionResult(exitCode: 0, stdout: "{\"enabled\":false}", stderr: "", timedOut: false),
+            // feishu config missing
+            ShellExecutionResult(exitCode: 1, stdout: "", stderr: "not configured", timedOut: false),
+            // channels status
+            ShellExecutionResult(exitCode: 0, stdout: "telegram: enabled ready\nslack: disabled\nfeishu: not configured", stderr: "", timedOut: false),
+        ])
+        let vm = SetupViewModel(
+            catalog: [],
+            shell: shell,
+            advisor: MockRemediationAdvisor(),
+            logger: InstallLogger()
+        )
+        vm.stage = .openClaw
+        vm.openClawPrecheckCompleted = true
+
+        vm.refreshOpenClawExistingInstallStatus()
+        try await Task.sleep(nanoseconds: 250_000_000)
+
+        #expect(vm.openClawExistingInstallDetected)
+        #expect(!vm.isCheckingOpenClawExistingInstall)
+        #expect(vm.openClawPrecheckCompleted)
+        #expect(vm.openClawConfiguredChannels.contains(.telegram))
+        #expect(!vm.openClawConfiguredChannels.contains(.slack))
+        #expect(vm.openClawSelectedChannels.contains(.telegram))
+        #expect(shell.invocations.count == 6)
+        #expect(shell.invocations[0].command == "pgrep -f '[o]penclaw' >/dev/null 2>&1")
+        #expect(shell.invocations[1].command == "openclaw gateway status")
+        #expect(shell.invocations[2].command == "openclaw config get --json channels.telegram")
+        #expect(shell.invocations[3].command == "openclaw config get --json channels.slack")
+        #expect(shell.invocations[4].command == "openclaw config get --json channels.feishu")
+        #expect(shell.invocations[5].command == "openclaw channels status --probe")
+    }
+
+    @Test
+    func refreshOpenClawExistingInstallStatusMarksNotInstalledWhenProcessMissing() async throws {
+        let shell = MockShellExecutor(results: [
+            // openclaw process missing
+            ShellExecutionResult(exitCode: 1, stdout: "", stderr: "", timedOut: false),
+        ])
+        let vm = SetupViewModel(
+            catalog: [],
+            shell: shell,
+            advisor: MockRemediationAdvisor(),
+            logger: InstallLogger()
+        )
+        vm.stage = .openClaw
+        vm.openClawExistingInstallDetected = true
+
+        vm.refreshOpenClawExistingInstallStatus()
+        try await Task.sleep(nanoseconds: 250_000_000)
+
+        #expect(!vm.openClawExistingInstallDetected)
+        #expect(!vm.isCheckingOpenClawExistingInstall)
+        #expect(vm.openClawPrecheckCompleted)
+        #expect(shell.invocations.count == 1)
+        #expect(shell.invocations[0].command == "pgrep -f '[o]penclaw' >/dev/null 2>&1")
+    }
+
+    @Test
+    func installOpenClawStepDoesNotRunWhenPrecheckNotCompleted() {
+        let vm = SetupViewModel(
+            catalog: [],
+            shell: MockShellExecutor(),
+            advisor: MockRemediationAdvisor(),
+            logger: InstallLogger()
+        )
+        vm.stage = .openClaw
+        vm.apiProvider = .kimi
+        vm.apiKey = "key1-test"
+        vm.openClawPrecheckCompleted = false
+
+        vm.installOpenClawStep()
+
+        #expect(vm.stage == .openClaw)
+        #expect(vm.userNotice.contains("check is not complete"))
+        #expect(vm.openClawInstallStatus == .idle)
+    }
+
+    @Test
+    func setOpenClawChannelKeepsConfiguredChannelSelected() {
+        let vm = makeVM()
+        vm.openClawConfiguredChannels = [.telegram]
+        vm.openClawSelectedChannels = [.telegram]
+
+        vm.setOpenClawChannel(.telegram, selected: false)
+
+        #expect(vm.openClawSelectedChannels.contains(.telegram))
     }
 
     @Test
@@ -787,8 +923,8 @@ struct SetupViewModelTests {
             ShellExecutionResult(exitCode: 1, stdout: "", stderr: "missing", timedOut: false),
             // install openclaw cask
             ShellExecutionResult(exitCode: 0, stdout: "installed", stderr: "", timedOut: false),
-            // which openclaw
-            ShellExecutionResult(exitCode: 0, stdout: "/usr/local/bin/openclaw", stderr: "", timedOut: false),
+            // openclaw process
+            ShellExecutionResult(exitCode: 0, stdout: "1234", stderr: "", timedOut: false),
             // openclaw gateway status
             ShellExecutionResult(exitCode: 0, stdout: "status: starting", stderr: "", timedOut: false),
             // onboard
@@ -803,6 +939,7 @@ struct SetupViewModelTests {
         vm.stage = .openClaw
         vm.apiProvider = .openrouter
         vm.apiKey = "key1-test"
+        vm.openClawPrecheckCompleted = true
 
         vm.installOpenClawStep()
         try await Task.sleep(nanoseconds: 500_000_000)
@@ -814,7 +951,7 @@ struct SetupViewModelTests {
         #expect(shell.invocations[1].command == "brew install openclaw-cli")
         #expect(shell.invocations[2].command == "brew list --cask openclaw >/dev/null 2>&1 || [ -d '/Applications/OpenClaw.app' ]")
         #expect(shell.invocations[3].command == "brew install --cask openclaw")
-        #expect(shell.invocations[4].command == "which openclaw")
+        #expect(shell.invocations[4].command == "pgrep -f '[o]penclaw' >/dev/null 2>&1")
         #expect(shell.invocations[5].command == "openclaw gateway status")
         #expect(shell.invocations[6].command == "openclaw onboard --non-interactive --accept-risk --mode local --auth-choice openrouter-api-key --openrouter-api-key 'key1-test'")
     }
@@ -826,8 +963,8 @@ struct SetupViewModelTests {
             ShellExecutionResult(exitCode: 0, stdout: "installed", stderr: "", timedOut: false),
             // check: openclaw cask
             ShellExecutionResult(exitCode: 0, stdout: "installed", stderr: "", timedOut: false),
-            // which openclaw
-            ShellExecutionResult(exitCode: 0, stdout: "/usr/local/bin/openclaw", stderr: "", timedOut: false),
+            // openclaw process
+            ShellExecutionResult(exitCode: 0, stdout: "1234", stderr: "", timedOut: false),
             // openclaw gateway status
             ShellExecutionResult(exitCode: 0, stdout: "Gateway is running and healthy", stderr: "", timedOut: false),
         ])
@@ -840,6 +977,7 @@ struct SetupViewModelTests {
         vm.stage = .openClaw
         vm.apiProvider = .kimi
         vm.apiKey = "key1-test"
+        vm.openClawPrecheckCompleted = true
 
         vm.installOpenClawStep()
         try await Task.sleep(nanoseconds: 500_000_000)
@@ -850,7 +988,7 @@ struct SetupViewModelTests {
         #expect(shell.invocations.count == 4)
         #expect(shell.invocations[0].command == "brew list openclaw-cli >/dev/null 2>&1")
         #expect(shell.invocations[1].command == "brew list --cask openclaw >/dev/null 2>&1 || [ -d '/Applications/OpenClaw.app' ]")
-        #expect(shell.invocations[2].command == "which openclaw")
+        #expect(shell.invocations[2].command == "pgrep -f '[o]penclaw' >/dev/null 2>&1")
         #expect(shell.invocations[3].command == "openclaw gateway status")
     }
 
@@ -866,6 +1004,7 @@ struct SetupViewModelTests {
         vm.stage = .openClaw
         vm.apiProvider = .openai
         vm.apiKey = "key1-test"
+        vm.openClawPrecheckCompleted = true
 
         vm.installOpenClawStep()
 
@@ -897,6 +1036,7 @@ struct SetupViewModelTests {
         vm.stage = .openClaw
         vm.apiProvider = .kimi
         vm.apiKey = "key1-test"
+        vm.openClawPrecheckCompleted = true
 
         vm.installOpenClawStep()
         try await Task.sleep(nanoseconds: 500_000_000)
@@ -919,8 +1059,8 @@ struct SetupViewModelTests {
             ShellExecutionResult(exitCode: 0, stdout: "installed", stderr: "", timedOut: false),
             // check: openclaw cask
             ShellExecutionResult(exitCode: 0, stdout: "installed", stderr: "", timedOut: false),
-            // which openclaw
-            ShellExecutionResult(exitCode: 0, stdout: "/usr/local/bin/openclaw", stderr: "", timedOut: false),
+            // openclaw process
+            ShellExecutionResult(exitCode: 0, stdout: "1234", stderr: "", timedOut: false),
             // openclaw gateway status
             ShellExecutionResult(exitCode: 0, stdout: "status: down", stderr: "", timedOut: false),
             // onboard
@@ -951,6 +1091,7 @@ struct SetupViewModelTests {
         vm.stage = .openClaw
         vm.apiProvider = .kimi
         vm.apiKey = "key1-test"
+        vm.openClawPrecheckCompleted = true
 
         vm.setOpenClawChannel(.telegram, selected: true)
         vm.openClawTelegramBotToken = "tg-bot-token"
@@ -977,6 +1118,43 @@ struct SetupViewModelTests {
         #expect(shell.invocations[10].command == "openclaw config set --json channels.feishu '{\"appId\":\"cli_test_id\",\"appSecret\":\"cli_test_secret\",\"domain\":\"lark\",\"enabled\":true}'")
         #expect(shell.invocations[11].command == "openclaw gateway restart")
         #expect(shell.invocations[12].command == "openclaw channels status --probe")
+    }
+
+    @Test
+    func installOpenClawStepSkipsMutatingAlreadyConfiguredChannels() async throws {
+        let shell = MockShellExecutor(results: [
+            // check: openclaw-cli
+            ShellExecutionResult(exitCode: 0, stdout: "installed", stderr: "", timedOut: false),
+            // check: openclaw cask
+            ShellExecutionResult(exitCode: 0, stdout: "installed", stderr: "", timedOut: false),
+            // openclaw process
+            ShellExecutionResult(exitCode: 0, stdout: "1234", stderr: "", timedOut: false),
+            // openclaw gateway status
+            ShellExecutionResult(exitCode: 0, stdout: "status: down", stderr: "", timedOut: false),
+            // onboard
+            ShellExecutionResult(exitCode: 0, stdout: "ok", stderr: "", timedOut: false),
+        ])
+        let vm = SetupViewModel(
+            catalog: [],
+            shell: shell,
+            advisor: MockRemediationAdvisor(),
+            logger: InstallLogger()
+        )
+        vm.stage = .openClaw
+        vm.apiProvider = .kimi
+        vm.apiKey = "key1-test"
+        vm.openClawConfiguredChannels = [.telegram]
+        vm.openClawSelectedChannels = [.telegram]
+        vm.openClawPrecheckCompleted = true
+
+        vm.installOpenClawStep()
+        try await Task.sleep(nanoseconds: 500_000_000)
+
+        #expect(vm.stage == .completion)
+        #expect(vm.openClawInstallStatus == .succeeded)
+        #expect(shell.invocations.count == 5)
+        #expect(!shell.invocations.contains(where: { $0.command.contains("openclaw plugins enable telegram") }))
+        #expect(!shell.invocations.contains(where: { $0.command.contains("openclaw config set --json channels.telegram") }))
     }
 
     @Test

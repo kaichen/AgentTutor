@@ -80,6 +80,7 @@ struct SetupFlowView: View {
                     viewModel.skipOpenClawStep()
                 }
                 .buttonStyle(.bordered)
+                .disabled(!viewModel.canSkipOpenClawStep)
             }
 
             Spacer()
@@ -117,11 +118,13 @@ struct SetupFlowView: View {
                 }
                 .buttonStyle(.borderedProminent)
             } else if viewModel.stage == .openClaw {
-                Button(openClawPrimaryButtonTitle) {
-                    viewModel.installOpenClawStep()
+                if viewModel.shouldShowOpenClawInitializeButton {
+                    Button(openClawPrimaryButtonTitle) {
+                        viewModel.installOpenClawStep()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(!viewModel.canInstallOpenClaw)
                 }
-                .buttonStyle(.borderedProminent)
-                .disabled(!viewModel.canInstallOpenClaw)
             }
         }
     }
