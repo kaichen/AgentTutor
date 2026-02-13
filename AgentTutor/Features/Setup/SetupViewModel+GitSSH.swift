@@ -39,7 +39,7 @@ extension SetupViewModel {
         sshKeyState = .checking
 
         Task {
-            var hasValidGitIdentity = false
+            var hasConfiguredGitIdentity = false
             var hasExistingSSHKey = false
 
             await logger.log(level: .info, message: "git_ssh_step_entered")
@@ -49,7 +49,7 @@ extension SetupViewModel {
             case let .success(identity):
                 gitUserName = identity.name
                 gitUserEmail = identity.email
-                hasValidGitIdentity = hasValidGitIdentity(from: identity)
+                hasConfiguredGitIdentity = hasValidGitIdentity(from: identity)
             case let .failure(error):
                 gitConfigStatus = .failed(error.localizedDescription)
                 await logGitSSHFailure(error, fallbackAction: "read_git_identity")
@@ -69,7 +69,7 @@ extension SetupViewModel {
             }
 
             guard stage == .gitSSH else { return }
-            if hasValidGitIdentity, hasExistingSSHKey, await hasAuthenticatedGitHubCLI() {
+            if hasConfiguredGitIdentity, hasExistingSSHKey, await hasAuthenticatedGitHubCLI() {
                 completeGitSSHStepAsAlreadyConfigured()
                 await logger.log(level: .info, message: "git_ssh_step_skipped_existing")
             }
