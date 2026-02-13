@@ -736,7 +736,7 @@ struct SetupViewModelTests {
         )
         vm.stage = .openClaw
         vm.apiProvider = .openrouter
-        vm.apiKey = "sk-openrouter-test"
+        vm.apiKey = "key1-test"
 
         vm.installOpenClawStep()
         try await Task.sleep(nanoseconds: 500_000_000)
@@ -748,7 +748,7 @@ struct SetupViewModelTests {
         #expect(shell.invocations[1].command == "brew install openclaw-cli")
         #expect(shell.invocations[2].command == "brew list --cask openclaw >/dev/null 2>&1 || [ -d '/Applications/OpenClaw.app' ]")
         #expect(shell.invocations[3].command == "brew install --cask openclaw")
-        #expect(shell.invocations[4].command == "openclaw onboard --non-interactive --accept-risk --mode local --auth-choice openrouter-api-key --openrouter-api-key 'sk-openrouter-test'")
+        #expect(shell.invocations[4].command == "openclaw onboard --non-interactive --accept-risk --mode local --auth-choice openrouter-api-key --openrouter-api-key 'key1-test'")
     }
 
     @Test
@@ -762,12 +762,12 @@ struct SetupViewModelTests {
         )
         vm.stage = .openClaw
         vm.apiProvider = .openai
-        vm.apiKey = "sk-openai-test"
+        vm.apiKey = "key1-test"
 
         vm.installOpenClawStep()
 
         #expect(vm.stage == .openClaw)
-        #expect(vm.openClawValidationErrors.contains(where: { $0.contains("not supported") }))
+        #expect(vm.openClawValidationErrors.contains(where: { $0.contains("not supported for non-interactive OpenClaw onboarding") }))
         #expect(shell.invocations.isEmpty)
         switch vm.openClawInstallStatus {
         case .failed:
@@ -792,8 +792,8 @@ struct SetupViewModelTests {
             logger: InstallLogger()
         )
         vm.stage = .openClaw
-        vm.apiProvider = .openrouter
-        vm.apiKey = "sk-openrouter-test"
+        vm.apiProvider = .kimi
+        vm.apiKey = "key1-test"
 
         vm.installOpenClawStep()
         try await Task.sleep(nanoseconds: 500_000_000)
@@ -842,8 +842,8 @@ struct SetupViewModelTests {
             logger: InstallLogger()
         )
         vm.stage = .openClaw
-        vm.apiProvider = .openrouter
-        vm.apiKey = "sk-openrouter-test"
+        vm.apiProvider = .kimi
+        vm.apiKey = "key1-test"
 
         vm.setOpenClawChannel(.telegram, selected: true)
         vm.openClawTelegramBotToken = "tg-bot-token"

@@ -32,7 +32,7 @@ struct OpenClawSetupView: View {
     private var providerSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text("Onboarding Provider")
+                Text("Onboarding Provider (API Key Step)")
                     .font(.headline)
                 Spacer()
                 Text(viewModel.apiProvider.displayName)
@@ -42,7 +42,11 @@ struct OpenClawSetupView: View {
 
             Label(viewModel.openClawProviderSupportMessage, systemImage: providerIconName)
                 .font(.footnote)
-                .foregroundStyle(viewModel.apiProvider.supportsOpenClawNonInteractiveOnboard ? .green : .red)
+                .foregroundStyle(viewModel.isOpenClawProviderConfigured ? .green : .red)
+
+            Text("Credential source: `key1` from API Key step.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
 
             Text("Command mode: `openclaw onboard --non-interactive --accept-risk --mode local`")
                 .font(.footnote)
@@ -166,7 +170,7 @@ struct OpenClawSetupView: View {
     }
 
     private var providerIconName: String {
-        viewModel.apiProvider.supportsOpenClawNonInteractiveOnboard ? "checkmark.circle.fill" : "xmark.circle.fill"
+        viewModel.isOpenClawProviderConfigured ? "checkmark.circle.fill" : "xmark.circle.fill"
     }
 
     @ViewBuilder

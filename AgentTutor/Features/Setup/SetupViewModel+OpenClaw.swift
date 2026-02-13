@@ -37,13 +37,13 @@ extension SetupViewModel {
 
     var openClawValidationErrors: [String] {
         var errors: [String] = []
-        let apiKey = normalizedOpenClawValue(apiKey)
+        let key1 = normalizedOpenClawValue(apiKey)
 
-        if apiKey.isEmpty {
-            errors.append("API key is required to initialize OpenClaw.")
+        if key1.isEmpty {
+            errors.append("key1 is required to initialize OpenClaw.")
         }
         if !apiProvider.supportsOpenClawNonInteractiveOnboard {
-            errors.append("Provider \(apiProvider.displayName) is not supported for non-interactive OpenClaw onboarding. Use OpenRouter, Kimi, or MiniMax.")
+            errors.append("Provider \(apiProvider.displayName) from API Key step is not supported for non-interactive OpenClaw onboarding.")
         }
         if openClawSelectedChannels.contains(.telegram) && normalizedOpenClawValue(openClawTelegramBotToken).isEmpty {
             errors.append("Telegram bot token is required.")
@@ -76,10 +76,14 @@ extension SetupViewModel {
     }
 
     var openClawProviderSupportMessage: String {
-        guard !apiProvider.supportsOpenClawNonInteractiveOnboard else {
-            return "Provider \(apiProvider.displayName) can be onboarded in non-interactive mode."
+        guard apiProvider.supportsOpenClawNonInteractiveOnboard else {
+            return "Provider \(apiProvider.displayName) from API Key step cannot be used for non-interactive OpenClaw onboarding."
         }
-        return "Provider \(apiProvider.displayName) is not supported for non-interactive OpenClaw onboarding."
+        return "OpenClaw will use \(apiProvider.displayName) provider and key1 from API Key step."
+    }
+
+    var isOpenClawProviderConfigured: Bool {
+        apiProvider.supportsOpenClawNonInteractiveOnboard
     }
 
     func isOpenClawChannelSelected(_ channel: OpenClawChannel) -> Bool {
@@ -108,7 +112,7 @@ extension SetupViewModel {
             return
         }
         guard let onboardAuth = apiProvider.openClawOnboardAuth else {
-            let message = "Provider \(apiProvider.displayName) cannot be used for non-interactive OpenClaw onboarding."
+            let message = "Provider \(apiProvider.displayName) from API Key step cannot be used for non-interactive OpenClaw onboarding."
             openClawInstallStatus = .failed(message)
             userNotice = message
             return
@@ -121,6 +125,7 @@ extension SetupViewModel {
         Task {
             await logger.log(level: .info, message: "openclaw_setup_started", metadata: [
                 "provider": apiProvider.rawValue,
+                "key_source": "key1",
                 "selected_channels": String(openClawSelectedChannels.count),
             ])
 
