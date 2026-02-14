@@ -23,7 +23,6 @@ struct SetupFlowView: View {
             footer
         }
         .padding(24)
-        .frame(minWidth: 960, minHeight: 680)
         .alert("Run remediation command in Terminal?", isPresented: $viewModel.showingCommandConfirmation) {
             Button("Cancel", role: .cancel) {}
             Button("Open Terminal") {
