@@ -842,6 +842,7 @@ struct SetupViewModelTests {
         try await Task.sleep(nanoseconds: 250_000_000)
 
         #expect(vm.openClawExistingInstallDetected)
+        #expect(vm.openClawGatewayHealthy)
         #expect(!vm.isCheckingOpenClawExistingInstall)
         #expect(vm.openClawPrecheckCompleted)
         #expect(vm.openClawConfiguredChannels.contains(.telegram))
@@ -875,6 +876,7 @@ struct SetupViewModelTests {
         try await Task.sleep(nanoseconds: 250_000_000)
 
         #expect(!vm.openClawExistingInstallDetected)
+        #expect(!vm.openClawGatewayHealthy)
         #expect(!vm.isCheckingOpenClawExistingInstall)
         #expect(vm.openClawPrecheckCompleted)
         #expect(shell.invocations.count == 1)
@@ -929,6 +931,8 @@ struct SetupViewModelTests {
             ShellExecutionResult(exitCode: 0, stdout: "status: starting", stderr: "", timedOut: false),
             // onboard
             ShellExecutionResult(exitCode: 0, stdout: "onboarded", stderr: "", timedOut: false),
+            // openclaw gateway status after setup
+            ShellExecutionResult(exitCode: 0, stdout: "Gateway is running and healthy", stderr: "", timedOut: false),
         ])
         let vm = SetupViewModel(
             catalog: [],
@@ -946,7 +950,8 @@ struct SetupViewModelTests {
 
         #expect(vm.stage == .completion)
         #expect(vm.openClawInstallStatus == .succeeded)
-        #expect(shell.invocations.count == 7)
+        #expect(vm.openClawGatewayHealthy)
+        #expect(shell.invocations.count == 8)
         #expect(shell.invocations[0].command == "brew list openclaw-cli >/dev/null 2>&1")
         #expect(shell.invocations[1].command == "brew install openclaw-cli")
         #expect(shell.invocations[2].command == "brew list --cask openclaw >/dev/null 2>&1 || [ -d '/Applications/OpenClaw.app' ]")
@@ -954,6 +959,7 @@ struct SetupViewModelTests {
         #expect(shell.invocations[4].command == "pgrep -f '[o]penclaw' >/dev/null 2>&1")
         #expect(shell.invocations[5].command == "openclaw gateway status")
         #expect(shell.invocations[6].command == "openclaw onboard --non-interactive --accept-risk --mode local --auth-choice openrouter-api-key --openrouter-api-key 'key1-test'")
+        #expect(shell.invocations[7].command == "openclaw gateway status")
     }
 
     @Test
@@ -984,6 +990,7 @@ struct SetupViewModelTests {
 
         #expect(vm.stage == .completion)
         #expect(vm.openClawInstallStatus == .succeeded)
+        #expect(vm.openClawGatewayHealthy)
         #expect(vm.userNotice == "OpenClaw onboarding already completed. Skipping initialization.")
         #expect(shell.invocations.count == 4)
         #expect(shell.invocations[0].command == "brew list openclaw-cli >/dev/null 2>&1")
@@ -1081,6 +1088,8 @@ struct SetupViewModelTests {
             ShellExecutionResult(exitCode: 0, stdout: "ok", stderr: "", timedOut: false),
             // probe channels
             ShellExecutionResult(exitCode: 0, stdout: "ok", stderr: "", timedOut: false),
+            // openclaw gateway status after setup
+            ShellExecutionResult(exitCode: 0, stdout: "Gateway is running and healthy", stderr: "", timedOut: false),
         ])
         let vm = SetupViewModel(
             catalog: [],
@@ -1109,7 +1118,8 @@ struct SetupViewModelTests {
 
         #expect(vm.stage == .completion)
         #expect(vm.openClawInstallStatus == .succeeded)
-        #expect(shell.invocations.count == 13)
+        #expect(vm.openClawGatewayHealthy)
+        #expect(shell.invocations.count == 14)
         #expect(shell.invocations[5].command == "openclaw plugins enable telegram")
         #expect(shell.invocations[6].command == "openclaw config set --json channels.telegram '{\"botToken\":\"tg-bot-token\",\"enabled\":true}'")
         #expect(shell.invocations[7].command == "openclaw plugins enable slack")
@@ -1118,6 +1128,7 @@ struct SetupViewModelTests {
         #expect(shell.invocations[10].command == "openclaw config set --json channels.feishu '{\"appId\":\"cli_test_id\",\"appSecret\":\"cli_test_secret\",\"domain\":\"lark\",\"enabled\":true}'")
         #expect(shell.invocations[11].command == "openclaw gateway restart")
         #expect(shell.invocations[12].command == "openclaw channels status --probe")
+        #expect(shell.invocations[13].command == "openclaw gateway status")
     }
 
     @Test
@@ -1133,6 +1144,8 @@ struct SetupViewModelTests {
             ShellExecutionResult(exitCode: 0, stdout: "status: down", stderr: "", timedOut: false),
             // onboard
             ShellExecutionResult(exitCode: 0, stdout: "ok", stderr: "", timedOut: false),
+            // openclaw gateway status after setup
+            ShellExecutionResult(exitCode: 0, stdout: "Gateway is running and healthy", stderr: "", timedOut: false),
         ])
         let vm = SetupViewModel(
             catalog: [],
@@ -1152,9 +1165,54 @@ struct SetupViewModelTests {
 
         #expect(vm.stage == .completion)
         #expect(vm.openClawInstallStatus == .succeeded)
-        #expect(shell.invocations.count == 5)
+        #expect(vm.openClawGatewayHealthy)
+        #expect(shell.invocations.count == 6)
         #expect(!shell.invocations.contains(where: { $0.command.contains("openclaw plugins enable telegram") }))
         #expect(!shell.invocations.contains(where: { $0.command.contains("openclaw config set --json channels.telegram") }))
+    }
+
+    @Test
+    func shouldShowOpenClawDashboardButtonWhenCompletionSucceededAndGatewayHealthy() {
+        let vm = makeVM()
+        vm.stage = .completion
+        vm.openClawInstallStatus = .succeeded
+        vm.openClawGatewayHealthy = true
+
+        #expect(vm.shouldShowOpenClawDashboardButton)
+    }
+
+    @Test
+    func shouldHideOpenClawDashboardButtonWhenGatewayIsNotHealthy() {
+        let vm = makeVM()
+        vm.stage = .completion
+        vm.openClawInstallStatus = .succeeded
+        vm.openClawGatewayHealthy = false
+
+        #expect(!vm.shouldShowOpenClawDashboardButton)
+    }
+
+    @Test
+    func openOpenClawDashboardRunsCommandWhenEligible() {
+        var launchedCommand: String?
+        let vm = SetupViewModel(
+            catalog: [],
+            shell: MockShellExecutor(),
+            advisor: MockRemediationAdvisor(),
+            logger: InstallLogger(),
+            remediationCommandLauncher: { command in
+                launchedCommand = command
+                return true
+            }
+        )
+        vm.stage = .completion
+        vm.openClawInstallStatus = .succeeded
+        vm.openClawGatewayHealthy = true
+
+        vm.openOpenClawDashboard()
+
+        #expect(launchedCommand == "openclaw dashboard")
+        #expect(vm.liveLog.contains("$ openclaw dashboard"))
+        #expect(vm.userNotice.contains("Opening OpenClaw dashboard"))
     }
 
     @Test

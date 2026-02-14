@@ -30,6 +30,7 @@ final class SetupViewModel: ObservableObject {
     @Published var githubUploadStatus: ActionStatus = .idle
     @Published var openClawInstallStatus: ActionStatus = .idle
     @Published var openClawExistingInstallDetected = false
+    @Published var openClawGatewayHealthy = false
     @Published var isCheckingOpenClawExistingInstall = false
     @Published var openClawPrecheckCompleted = false
     @Published var openClawConfiguredChannels: Set<OpenClawChannel> = []
@@ -184,6 +185,7 @@ final class SetupViewModel: ObservableObject {
         githubUploadStatus = .idle
         openClawInstallStatus = .idle
         openClawExistingInstallDetected = false
+        openClawGatewayHealthy = false
         isCheckingOpenClawExistingInstall = false
         openClawPrecheckCompleted = false
         openClawConfiguredChannels = []
@@ -277,7 +279,7 @@ final class SetupViewModel: ObservableObject {
                 metadata: ["command": command]
             )
             let launched = remediationCommandLauncherOverride?(command)
-                ?? launchRemediationCommandInSystemTerminal(command)
+                ?? launchCommandInSystemTerminal(command)
             appendLog("$ \(command)")
             if launched {
                 userNotice = "Remediation command succeeded. You can retry installation now."
@@ -289,7 +291,22 @@ final class SetupViewModel: ObservableObject {
         }
     }
 
-    private func launchRemediationCommandInSystemTerminal(_ command: String) -> Bool {
+    func openOpenClawDashboard() {
+        guard shouldShowOpenClawDashboardButton else {
+            return
+        }
+        let command = "openclaw dashboard"
+        let launched = remediationCommandLauncherOverride?(command)
+            ?? launchCommandInSystemTerminal(command)
+        appendLog("$ \(command)")
+        if launched {
+            userNotice = "Opening OpenClaw dashboard..."
+        } else {
+            userNotice = "Unable to launch Terminal for OpenClaw dashboard."
+        }
+    }
+
+    private func launchCommandInSystemTerminal(_ command: String) -> Bool {
         let script = systemTerminalScript(for: terminalPathPrefix + command)
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")

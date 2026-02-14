@@ -75,6 +75,12 @@ extension SetupViewModel {
         return true
     }
 
+    var shouldShowOpenClawDashboardButton: Bool {
+        stage == .completion &&
+            openClawInstallStatus == .succeeded &&
+            openClawGatewayHealthy
+    }
+
     var openClawValidationErrors: [String] {
         var errors: [String] = []
         let key1 = normalizedOpenClawValue(apiKey)
@@ -171,6 +177,7 @@ extension SetupViewModel {
             let isInstalled = await hasHealthyOpenClawGateway()
             guard !Task.isCancelled else { return }
             openClawExistingInstallDetected = isInstalled
+            openClawGatewayHealthy = isInstalled
             if isInstalled {
                 let configuredChannels = await detectConfiguredOpenClawChannels()
                 guard !Task.isCancelled else { return }
@@ -244,12 +251,17 @@ extension SetupViewModel {
                 return
             }
 
+            openClawGatewayHealthy = await checkOpenClawGatewayHealthFromStatus()
             openClawInstallStatus = .succeeded
             navigationDirection = .forward
             stage = .completion
-            userNotice = openClawSelectedChannels.isEmpty
-                ? "OpenClaw initialized successfully."
-                : "OpenClaw initialized and channel configuration applied."
+            if openClawGatewayHealthy {
+                userNotice = openClawSelectedChannels.isEmpty
+                    ? "OpenClaw initialized successfully."
+                    : "OpenClaw initialized and channel configuration applied."
+            } else {
+                userNotice = "OpenClaw initialized, but gateway is not healthy yet. Please verify before opening dashboard."
+            }
             await logger.log(level: .info, message: "openclaw_setup_completed")
         }
     }
@@ -313,6 +325,7 @@ extension SetupViewModel {
     private func shouldSkipOpenClawOnboard() async -> Bool {
         let isInstalled = await hasHealthyOpenClawGateway()
         openClawExistingInstallDetected = isInstalled
+        openClawGatewayHealthy = isInstalled
         return isInstalled
     }
 
@@ -323,6 +336,7 @@ extension SetupViewModel {
             timeoutSeconds: 20
         )
         guard processResult.exitCode == 0 else {
+            openClawGatewayHealthy = false
             return false
         }
 
@@ -332,10 +346,13 @@ extension SetupViewModel {
             timeoutSeconds: 120
         )
         guard gatewayStatusResult.exitCode == 0 else {
+            openClawGatewayHealthy = false
             return false
         }
 
-        return isOpenClawGatewayHealthy(gatewayStatusResult.combinedOutput)
+        let isHealthy = isOpenClawGatewayHealthy(gatewayStatusResult.combinedOutput)
+        openClawGatewayHealthy = isHealthy
+        return isHealthy
     }
 
     private func isOpenClawGatewayHealthy(_ output: String) -> Bool {
@@ -674,12 +691,24 @@ extension SetupViewModel {
 
     private func handleOpenClawFailure(_ failure: OpenClawCommandFailure) async {
         openClawInstallStatus = .failed(failure.userMessage)
+        openClawGatewayHealthy = false
         userNotice = "\(failure.userMessage) You can retry or skip."
         await logger.log(level: .error, message: "openclaw_step_failed", metadata: [
             "label": failure.commandLabel,
             "command": failure.command,
             "exit_code": String(failure.result.exitCode),
         ])
+    }
+
+    private func checkOpenClawGatewayHealthFromStatus() async -> Bool {
+        let gatewayStatusResult = await runOpenClawCommand(
+            "openclaw gateway status",
+            timeoutSeconds: 120
+        )
+        guard gatewayStatusResult.exitCode == 0 else {
+            return false
+        }
+        return isOpenClawGatewayHealthy(gatewayStatusResult.combinedOutput)
     }
 
     private func normalizedOpenClawValue(_ value: String) -> String {
